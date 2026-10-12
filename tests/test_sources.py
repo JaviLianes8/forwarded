@@ -133,10 +133,20 @@ def test_parameter_names_are_exactly_the_rfc_9110_tokens(rfc9110: str) -> None:
             assert char in tchar, repr(char)
 
 
+def _abnf_codes(alternative: str, rules: dict[str, set[int]]) -> set[int]:
+    """The code points of one ABNF alternative: a named rule, %xNN or %xNN-MM."""
+    if alternative in rules:
+        return rules[alternative]
+    low, _, high = alternative.removeprefix("%x").partition("-")
+    return set(range(int(low, 16), int(high or low, 16) + 1))
+
+
 def test_quoted_strings_accept_exactly_the_rfc_9110_qdtext(rfc9110: str) -> None:
+    (obs_text,) = set(re.findall(r"obs-text +=(.+)", rfc9110))
+    rules = {"HTAB": {0x09}, "SP": {0x20}, "obs-text": _abnf_codes(obs_text.strip(), {})}
     rule = re.findall(r"qdtext +=(.+)", rfc9110)[0]
-    assert rule.split() == "HTAB / SP / %x21 / %x23-5B / %x5D-7E / obs-text".split()
-    qdtext = {9, 32, 0x21, *range(0x23, 0x5C), *range(0x5D, 0x7F), *range(0x80, 0x100)}
+    qdtext = set().union(*(_abnf_codes(part.strip(), rules) for part in rule.split("/")))
+    assert len(qdtext) == 2 + 1 + 57 + 34 + 128
     for code in range(0x180):
         try:
             parse(f'note="{chr(code)}"', strict=True)
