@@ -7,10 +7,10 @@ Progress:
 - [x] Strict mode with `ForwardedError`: RFC 7239 grammar, duplicates, per-parameter syntax
 - [x] Typed node identifiers: `Node`, `parse_node`, IPv4, bracketed IPv6, `unknown`, obfuscated
 - [x] Safe builder: header injection guard, node, host and proto validation, `Node` values
-- [ ] X-Forwarded-For family: list parsing, lenient entries, conversion to `Forwarded`
-- [ ] Client resolution: rightmost untrusted, trusted networks or hop count, proto and host
+- [x] X-Forwarded-For family: list parsing, lenient entries, conversion to `Forwarded`
+- [x] Client resolution: rightmost untrusted, trusted networks or hop count, proto and host
 - [ ] Contracts: RFC examples read from the pinned files, typing, README examples, installed wheel
-- [ ] Docs and packaging: README, CHANGELOG, docstrings, metadata, sdist contents
+- [x] Docs and packaging: README, CHANGELOG, docstrings, metadata, sdist contents
 - [ ] Gates: ruff format, ruff check, mypy --strict, pytest
 - [ ] Mutation run: removing guarded logic makes the suite fail
 - [ ] Independent review findings fixed with regression tests
