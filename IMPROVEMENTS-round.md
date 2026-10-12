@@ -3,10 +3,10 @@
 Progress:
 - [x] Brainstorm ranked improvements (this file)
 - [x] Pin the ground truth: RFC 7239, RFC 9110, RFC 3986, MDN X-Forwarded-For, proxy references
-- [ ] Grammar-aware scanner: quoting only at value start, per-line parsing, resync after errors
-- [ ] Strict mode with `ForwardedError`: RFC 7239 grammar, duplicates, per-parameter syntax
-- [ ] Typed node identifiers: `Node`, `parse_node`, IPv4, bracketed IPv6, `unknown`, obfuscated
-- [ ] Safe builder: header injection guard, node, host and proto validation, `Node` values
+- [x] Grammar-aware scanner: quoting only at value start, per-line parsing, resync after errors
+- [x] Strict mode with `ForwardedError`: RFC 7239 grammar, duplicates, per-parameter syntax
+- [x] Typed node identifiers: `Node`, `parse_node`, IPv4, bracketed IPv6, `unknown`, obfuscated
+- [x] Safe builder: header injection guard, node, host and proto validation, `Node` values
 - [ ] X-Forwarded-For family: list parsing, lenient entries, conversion to `Forwarded`
 - [ ] Client resolution: rightmost untrusted, trusted networks or hop count, proto and host
 - [ ] Contracts: RFC examples read from the pinned files, typing, README examples, installed wheel

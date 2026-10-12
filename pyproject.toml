@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "forwarded"
-version = "0.1.0"
+version = "0.2.0"
 description = "Parse and build the HTTP Forwarded header per RFC 7239, with correct quoting and multiple elements"
 readme = "README.md"
 requires-python = ">=3.10"
