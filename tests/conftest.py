@@ -21,7 +21,7 @@ def read_upstream(name: str) -> str:
     entry = json.loads((UPSTREAM / "MANIFEST.json").read_text(encoding="utf-8"))[name]
     body = path.read_bytes()
     assert hashlib.sha256(body).hexdigest() == entry["sha256"], f"{name} differs from MANIFEST"
-    return body.decode("utf-8")
+    return body.decode("utf-8-sig")
 
 
 @pytest.fixture(scope="session")
