@@ -86,6 +86,11 @@ def test_invalid_identifiers_raise(text: str) -> None:
         parse_node(text)
 
 
+def test_an_unclosed_bracket_is_reported_as_such() -> None:
+    with pytest.raises(ForwardedError, match="not a bracketed IPv6 address"):
+        parse_node("[2001:db8::1")
+
+
 def test_str_writes_the_rfc_form() -> None:
     assert str(Node(ip=ip_address("2001:DB8::0:1"), port=80)) == "[2001:db8::1]:80"
     assert str(Node(ip=ip_address("192.0.2.1"))) == "192.0.2.1"

@@ -12,7 +12,7 @@ Progress:
 - [x] Contracts: RFC examples read from the pinned files, typing, README examples, installed wheel
 - [x] Docs and packaging: README, CHANGELOG, docstrings, metadata, sdist contents
 - [x] Gates: ruff format, ruff check, mypy --strict, pytest
-- [ ] Mutation run: removing guarded logic makes the suite fail
+- [x] Mutation run: removing guarded logic makes the suite fail
 - [x] Independent review findings fixed with regression tests
 - [ ] Pull request opened, guard clean
 
@@ -112,6 +112,25 @@ Progress:
 - Framework middleware: Starlette, Django and Werkzeug each have their own hook; the
   resolver takes plain strings so any of them can call it.
 - The PROXY protocol: it is a transport preamble, not an HTTP header.
+
+## Verification
+
+- Gates on CPython 3.13.2 (this PC) and 3.14.6 (a second Windows machine, fresh clone):
+  `ruff format --check .`, `ruff check .`, `mypy --strict src` (and `src tests`) and
+  `pytest`. With `FORWARDED_E2E=1` the installed-wheel test builds the wheel and sdist,
+  checks their contents (no planning notes, no fetched files, the manifest and fetch
+  script present), installs the wheel in a fresh venv and drives the API from an empty
+  folder. The suite also passes without the fetched files, skipping their tests.
+- Guarded logic was removed one piece at a time. First run (77 mutations): six alive,
+  four of them unreachable or equivalent code (a duplicate removal the dict already did,
+  a qdtext check after the quote and backslash branches, a strip the callers already do,
+  a hops clause the empty network list already covered), now removed; one missing test
+  for junk between a bracket and a port, now added. After the review fixes the run was
+  redone with 80 mutations covering the new code: two alive, killed by a test that gives
+  proto and host different counts and one that checks the message for an unclosed
+  bracket.
+- The review regression tests were run against the code before the fixes: the new cases
+  fail there, and the many-parameters test does not finish within two minutes.
 
 ## Review fixes
 

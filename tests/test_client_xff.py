@@ -106,6 +106,13 @@ def test_proto_and_host_have_their_own_counts() -> None:
     assert client == Client(Node(ip=ip_address("192.0.2.43")), "https", "shop.example", 2)
 
 
+def test_proto_and_host_counts_are_independent() -> None:
+    client = client_from_x_forwarded(
+        "192.0.2.43, 10.0.0.5", "10.0.0.1", proto="a, b", host="c, d", hops=2, host_hops=2
+    )
+    assert client is not None and (client.proto, client.host) == ("b", "c")
+
+
 def test_a_count_beyond_the_trusted_proxies_gives_none() -> None:
     client = client_from_x_forwarded(
         "192.0.2.43", "10.0.0.1", proto="evil, https", hops=1, proto_hops=2
