@@ -72,28 +72,39 @@ def client_from_x_forwarded(
     host: str | Iterable[str] | None = None,
     trusted: Iterable[Trusted] = (),
     hops: int | None = None,
+    proto_hops: int = 1,
+    host_hops: int = 1,
 ) -> Client | None:
     """Return the client of a request from its ``X-Forwarded-For`` lines and peer address.
 
     The walk is the one of ``client_from_forwarded`` over the X-Forwarded-For entries,
     which may be bare IPv4 or IPv6 addresses, with or without a port. ``proto`` and
-    ``host`` are the X-Forwarded-Proto and X-Forwarded-Host lines: with N trusted proxies
-    in front of the client, the value used is the N-th from the right, and ``None`` when
-    there are fewer values (the rule of Werkzeug's ``ProxyFix``).
+    ``host`` are the X-Forwarded-Proto and X-Forwarded-Host lines. Proxies often set those
+    at the edge only, so each has its own count, as in Werkzeug's ``ProxyFix``:
+    ``proto_hops`` and ``host_hops`` are the number of trusted proxies that append to
+    that header, and the value used is that many from the right. It is ``None`` when the
+    header has fewer values, or when the count is larger than the number of trusted
+    proxies the walk passed, since such a value could come from the client.
     """
+    proto_hops, host_hops = _count(proto_hops, "proto_hops"), _count(host_hops, "host_hops")
     entries = parse_x_forwarded(x_forwarded_for) if x_forwarded_for is not None else []
     nodes = [parse_lenient_node(entry) for entry in entries]
     found = _walk(nodes, remote, _Trust(trusted, hops))
     if found is None:
         return None
     _, node, proxies = found
-    return Client(node, _nth_from_right(proto, proxies), _nth_from_right(host, proxies), proxies)
+    return Client(
+        node,
+        _nth_from_right(proto, proto_hops, proxies),
+        _nth_from_right(host, host_hops, proxies),
+        proxies,
+    )
 
 
 class _Trust:
     def __init__(self, trusted: Iterable[Trusted], hops: int | None) -> None:
         if isinstance(trusted, (str, bytes)):
-            raise TypeError("trusted must be an iterable of addresses or networks, not a str")
+            raise TypeError("trusted must be an iterable of addresses or networks")
         self.networks = [_network(item) for item in trusted]
         if hops is not None:
             if isinstance(hops, bool) or not isinstance(hops, int):
@@ -111,8 +122,12 @@ class _Trust:
         ip = node.ip
         if ip is None:
             return False
-        mapped = ip.ipv4_mapped if isinstance(ip, IPv6Address) else None
-        return any(ip in net or (mapped is not None and mapped in net) for net in self.networks)
+        # A dual-stack socket reports IPv4 peers as ::ffff:a.b.c.d; match both spellings.
+        if isinstance(ip, IPv6Address):
+            other: IPv4Address | IPv6Address | None = ip.ipv4_mapped
+        else:
+            other = IPv6Address(f"::ffff:{ip}")
+        return any(ip in net or (other is not None and other in net) for net in self.networks)
 
 
 def _walk(
@@ -138,7 +153,7 @@ def _remote_node(remote: Address | None) -> Node | None:
     if isinstance(remote, (IPv4Address, IPv6Address)):
         ip = remote
     elif isinstance(remote, str):
-        node = parse_lenient_node(remote.partition("%")[0])
+        node = parse_lenient_node(_without_zone(remote))
         if node is None or node.ip is None:
             raise ValueError(f"remote {remote!r} is not an IP address")
         return node
@@ -157,6 +172,23 @@ def _network(item: Trusted) -> IPv4Network | IPv6Network:
     raise TypeError(f"cannot trust {item!r}: give an address or a network")
 
 
-def _nth_from_right(header: str | Iterable[str] | None, n: int) -> str | None:
-    values = parse_x_forwarded(header) if header is not None and n > 0 else []
-    return values[-n] if len(values) >= n > 0 else None
+def _without_zone(remote: str) -> str:
+    """Drop the zone of an IPv6 address (``fe80::1%eth0``, ``[fe80::1%eth0]:80``)."""
+    address, percent, zone = remote.partition("%")
+    if not percent or ":" not in address:
+        return remote
+    _, bracket, port = zone.partition("]")
+    return address + bracket + port
+
+
+def _count(value: int, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an int")
+    if value < 1:
+        raise ValueError(f"{name} must be at least 1")
+    return value
+
+
+def _nth_from_right(header: str | Iterable[str] | None, n: int, proxies: int) -> str | None:
+    values = parse_x_forwarded(header) if header is not None and n <= proxies else []
+    return values[-n] if len(values) >= n else None

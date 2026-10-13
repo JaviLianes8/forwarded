@@ -13,7 +13,7 @@ Progress:
 - [x] Docs and packaging: README, CHANGELOG, docstrings, metadata, sdist contents
 - [x] Gates: ruff format, ruff check, mypy --strict, pytest
 - [ ] Mutation run: removing guarded logic makes the suite fail
-- [ ] Independent review findings fixed with regression tests
+- [x] Independent review findings fixed with regression tests
 - [ ] Pull request opened, guard clean
 
 ## Starting point
@@ -74,7 +74,7 @@ Progress:
 
 1. **Spoofing-resistant client resolution.** `client_from_forwarded` and
    `client_from_x_forwarded` walk the chain from the right (the peer address last), skip
-   trusted proxies given as networks (IPv4-mapped IPv6 peers match IPv4 networks) or as a
+   trusted proxies given as networks (IPv4 and IPv4-mapped IPv6 match the same networks) or as a
    hop count, and return the first untrusted node with the `proto` and `host` that the
    first trusted proxy recorded. An untrusted peer means the headers are ignored. A
    malformed entry at the boundary gives `None`, never a guess.
@@ -112,3 +112,28 @@ Progress:
 - Framework middleware: Starlette, Django and Werkzeug each have their own hook; the
   resolver takes plain strings so any of them can call it.
 - The PROXY protocol: it is a transport preamble, not an HTTP header.
+
+## Review fixes
+
+An independent review attacked the branch; each finding below is fixed with a test that
+fails on the code before the fix:
+
+- Quadratic time on many parameters in one element (the duplicate check compared each
+  pair with every earlier one; 60k parameters took minutes). Names are now kept in a set.
+- X-Forwarded-Proto and -Host reused the X-Forwarded-For hop count, so with only the edge
+  proxy setting them a client-written value was picked. They now have their own counts
+  (`proto_hops`, `host_hops`, default 1, as `ProxyFix` does), and a count larger than the
+  trusted proxies passed gives `None`.
+- Docs said a broken quoted-string ends at the next comma; they now state the real rule
+  (the first comma after its opening quote) and a test pins it.
+- `bytes` headers get a clear `TypeError`; the `trusted` error message no longer says "str"
+  for `bytes`.
+- Peer addresses: a zone is dropped from IPv6 only (`192.0.2.1%zz` and surrounding
+  whitespace are rejected), and `[fe80::1%eth0]:80` is read.
+- An IPv4 peer now matches a trusted network written in IPv4-mapped IPv6 form.
+- Strict mode accepted no whitespace between an empty pair and the comma
+  (`for=a; ,by=b`), which the grammar allows; it does now. The docstring says plainly
+  that rejecting a header without any parameter is a choice of this library.
+- The README warns that the all-trusted fallback returns an entry nobody vouches for.
+- Not changed: a bare `str` for `trusted` still type-checks (a `str` is an iterable of
+  `str`) and is rejected at run time with `TypeError`.

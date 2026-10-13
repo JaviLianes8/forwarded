@@ -12,8 +12,9 @@ All notable changes to this project are documented here. The format follows
 
 - `client_from_forwarded` and `client_from_x_forwarded`: the client behind a chain of
   proxies, walked from the right and trusting proxies by address or network (`trusted`)
-  or by count (`hops`), with the `proto` and `host` the client used. IPv4-mapped IPv6
-  peers match IPv4 networks.
+  or by count (`hops`), with the `proto` and `host` the client used (`proto_hops` and
+  `host_hops` count the proxies that append to X-Forwarded-Proto and -Host). IPv4 and
+  IPv4-mapped IPv6 addresses match the same networks.
 - `Client`, the frozen result: `node`, `proto`, `host`, `proxies`.
 - `Node` and `parse_node` for `for` and `by` values: IPv4, bracketed IPv6,
   case-insensitive `unknown`, obfuscated names and ports.
@@ -27,8 +28,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- `parse` opens a quoted-string only where a value starts, and a broken one ends at the
-  next comma. In 0.1.0 an unterminated quote from a client swallowed the elements a
+- `parse` opens a quoted-string only where a value starts. A broken one (unterminated,
+  or followed by junk) resumes scanning at the first comma after its opening quote. In 0.1.0 an unterminated quote from a client swallowed the elements a
   proxy appended after it. Malformed input can therefore give different results.
 - `parse` keeps quoting within each line when given several lines.
 - `build` raises `ForwardedError` for values a header cannot carry (CR, LF, other

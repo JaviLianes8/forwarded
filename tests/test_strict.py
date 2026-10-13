@@ -16,6 +16,8 @@ from forwarded import ForwardedError, parse
         'for="unknown:_port"',
         "for=_a;;proto=http;",
         "for=_a , ,for=_b ,",
+        "for=192.0.2.1; ,by=192.0.2.2",
+        "for=_a;	",
         "\tfor=_a",
         "ext=anything;for=_a",
         'host=""',

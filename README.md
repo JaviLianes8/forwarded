@@ -23,7 +23,7 @@ from forwarded import client_from_forwarded, client_from_x_forwarded
 client = client_from_x_forwarded(
     "203.0.113.195, 10.0.0.7",  # X-Forwarded-For as received
     "10.0.0.2",  # the peer address of the connection
-    proto="https, http",  # X-Forwarded-Proto, if you use it
+    proto="https",  # X-Forwarded-Proto, set by the edge proxy
     trusted=["10.0.0.0/8"],  # your proxies: addresses or networks
 )
 print(client.node)
@@ -53,11 +53,18 @@ The walk goes from the right, starting with the peer address: while an entry is 
 proxy it moves on, and the first entry that is not is the client. If the peer itself is
 not trusted, the headers are ignored and the peer is the client. The result is `None`
 when the client cannot be told: the entry at the boundary is malformed, or there are
-fewer entries than `hops`. When every address is trusted, the leftmost one is returned.
+fewer entries than `hops`. When every address is trusted, the leftmost one is returned
+(as nginx does); that entry was written by whoever sent the request into your network,
+so do not use it for security decisions.
 
-`proto` and `host` are what the client used, as recorded by the first proxy you trust.
-For `X-Forwarded-Proto` and `X-Forwarded-Host` that is the N-th value from the right
-with N trusted proxies, and `None` when there are fewer values.
+`proto` and `host` are what the client used. With `Forwarded` they come from the
+client's own element, written by the first proxy you trust. `X-Forwarded-Proto` and
+`X-Forwarded-Host` are often set by the edge proxy only, so they have their own counts,
+as in Werkzeug's `ProxyFix`: `proto_hops` and `host_hops` (default 1) are the number of
+trusted proxies that append to that header, and the value used is that many from the
+right. It is `None` when there are fewer values, or when the count is larger than the
+number of trusted proxies the walk passed, since such a value could come from the
+client.
 
 Read only one of the two headers, the one your proxies set, and make sure your edge
 proxy drops or overwrites the other: a client can send whichever header you do not
@@ -92,8 +99,9 @@ print(build([{"for": Node(ip=ip_address("2001:db8::1"), port=8080), "proto": "ht
 
 `parse` is lenient by default: it skips pairs it cannot read, keeps the last of a
 duplicated parameter and drops empty elements. A double quote opens a quoted-string only
-where a value starts, and a broken one ends at the next comma, so text a client sends
-cannot swallow the element a proxy appends after it.
+where a value starts. When a quoted-string is unterminated, or followed by anything but
+`;`, `,` or whitespace, scanning resumes at the first comma after its opening quote, so
+text a client sends cannot swallow the element a proxy appends after it.
 
 With `strict=True`, anything outside RFC 7239 raises `ForwardedError`, a `ValueError`
 carrying the offset in its line:
@@ -137,7 +145,7 @@ Entries that are not addresses become `for=unknown`, so hop counts stay right.
 | Name | What it does |
 | --- | --- |
 | `client_from_forwarded(header, remote, *, trusted=(), hops=None)` | The client from `Forwarded` lines and the peer address, or `None`. |
-| `client_from_x_forwarded(header, remote, *, proto=None, host=None, trusted=(), hops=None)` | The same from `X-Forwarded-For`, with `X-Forwarded-Proto` and `-Host`. |
+| `client_from_x_forwarded(header, remote, *, proto=None, host=None, trusted=(), hops=None, proto_hops=1, host_hops=1)` | The same from `X-Forwarded-For`, with `X-Forwarded-Proto` and `-Host`. |
 | `Client` | Frozen result: `node`, `proto`, `host`, `proxies` (trusted proxies passed). |
 | `parse(header, *, strict=False)` | `Forwarded` lines to a list of dicts. |
 | `build(elements)` | Mappings of `str` or `Node` values to a `Forwarded` value. |
@@ -150,8 +158,9 @@ Entries that are not addresses become `for=unknown`, so hop counts stay right.
 `header` arguments take one field value or an iterable of them, one per line received.
 `remote` is a `str` or an `ipaddress` address (a zone such as `%eth0` is dropped), or
 `None` when the connection has no IP address (a Unix socket), which only `hops` can get
-past. `trusted` takes addresses and networks as strings or `ipaddress` objects; an
-IPv4-mapped IPv6 peer such as `::ffff:10.0.0.1` matches IPv4 networks.
+past. `trusted` takes an iterable of addresses and networks as strings or `ipaddress`
+objects (a bare string raises `TypeError`); an IPv4 address and its IPv4-mapped IPv6
+form such as `::ffff:10.0.0.1` match the same networks.
 
 ## Standards
 
@@ -160,8 +169,8 @@ IPv4-mapped IPv6 peer such as `::ffff:10.0.0.1` matches IPv4 networks.
 - RFC 9110: lists, tokens, whitespace and quoted-strings (5.6), Host (7.2).
 - RFC 3986: scheme, IPv4address, IPv6address and reg-name.
 - `X-Forwarded-For` has no specification. The selection rules follow the MDN reference;
-  ports and the leftmost fallback match nginx's realip module, and the N-th value rule
-  for `X-Forwarded-Proto` and `-Host` matches Werkzeug's `ProxyFix`. Unlike nginx, a
+  ports and the leftmost fallback match nginx's realip module, and the per-header counts
+  for `X-Forwarded-Proto` and `-Host` follow Werkzeug's `ProxyFix`. Unlike nginx, a
   malformed entry at the boundary gives `None` instead of the last trusted address.
 
 The tests check the library against the examples and grammar rules of the RFCs and the

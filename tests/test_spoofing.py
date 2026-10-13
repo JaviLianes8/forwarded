@@ -64,6 +64,13 @@ def test_a_forged_trusted_element_inside_quotes_is_not_an_element() -> None:
     assert client is None
 
 
+def test_many_parameters_in_one_element_scan_in_linear_time() -> None:
+    # A duplicate check against every earlier pair took minutes for 60k parameters.
+    header = ";".join(f"a{n}=1" for n in range(100_000))
+    assert len(parse(header)[0]) == 100_000
+    assert parse(header + ";a7=2")[0]["a7"] == "2"
+
+
 def test_scanning_is_linear_in_the_header_length() -> None:
     # A rescan from every quote would be quadratic; 200k quotes must stay fast.
     assert parse('x="' * 200_000 + PROXY)[-1] == APPENDED

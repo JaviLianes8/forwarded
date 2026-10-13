@@ -87,6 +87,16 @@ def test_a_quote_inside_a_name_does_not_open_a_quoted_string() -> None:
     assert parse('n"x=1, for=_x') == [{"for": "_x"}]
 
 
+def test_a_broken_quoted_string_resumes_at_the_first_comma_after_its_quote() -> None:
+    # The quoted value closes, but junk follows it: scanning resumes inside the quotes.
+    assert parse('x="a, for=_b, c"junk') == [{"for": "_b"}]
+
+
+def test_bytes_are_rejected_with_a_clear_message() -> None:
+    with pytest.raises(TypeError, match="not bytes"):
+        parse(b"for=_a")  # type: ignore[arg-type]
+
+
 def test_non_str_lines_are_rejected() -> None:
     with pytest.raises(TypeError, match="must be str"):
         parse([b"for=_a"])  # type: ignore[list-item]

@@ -75,32 +75,54 @@ def test_several_lines_are_one_list() -> None:
     assert _ip(client_from_x_forwarded(lines, "10.0.0.1", trusted=["10.0.0.0/8"])) == "192.0.2.43"
 
 
-def test_proto_and_host_take_the_value_of_the_first_trusted_proxy() -> None:
+def test_proto_and_host_default_to_the_rightmost_value() -> None:
+    client = client_from_x_forwarded(
+        "192.0.2.43, 10.0.0.5", "10.0.0.1", proto="http", host="shop.example", hops=2
+    )
+    assert client == Client(Node(ip=ip_address("192.0.2.43")), "http", "shop.example", 2)
+
+
+def test_a_host_written_by_the_client_is_not_used() -> None:
+    # Only the edge proxy sets X-Forwarded-Host; the client sent the first value itself.
+    client = client_from_x_forwarded(
+        "203.0.113.5, 10.0.0.7",
+        "10.0.0.2",
+        host="evil.example, shop.example",
+        trusted=["10.0.0.0/8"],
+    )
+    assert client is not None and client.host == "shop.example"
+
+
+def test_proto_and_host_have_their_own_counts() -> None:
     client = client_from_x_forwarded(
         "192.0.2.43, 10.0.0.5",
         "10.0.0.1",
         proto="https, http",
         host=["shop.example", "internal:8080"],
         trusted=["10.0.0.0/8"],
+        proto_hops=2,
+        host_hops=2,
     )
     assert client == Client(Node(ip=ip_address("192.0.2.43")), "https", "shop.example", 2)
 
 
-def test_a_single_proto_from_the_only_proxy() -> None:
-    client = client_from_x_forwarded("192.0.2.43", "10.0.0.1", proto="https", hops=1)
-    assert client is not None and client.proto == "https" and client.proxies == 1
-
-
-def test_fewer_proto_values_than_proxies_give_none() -> None:
+def test_a_count_beyond_the_trusted_proxies_gives_none() -> None:
     client = client_from_x_forwarded(
-        "192.0.2.43, 10.0.0.5", "10.0.0.1", proto="http", host="", trusted=["10.0.0.0/8"]
+        "192.0.2.43", "10.0.0.1", proto="evil, https", hops=1, proto_hops=2
+    )
+    assert client is not None and client.proto is None
+
+
+def test_fewer_values_than_the_count_give_none() -> None:
+    client = client_from_x_forwarded(
+        "192.0.2.43, 10.0.0.5", "10.0.0.1", proto="http", host="", hops=2, proto_hops=2
     )
     assert client is not None and (client.proto, client.host) == (None, None)
 
 
-def test_more_proto_values_than_proxies_use_the_nth_from_the_right() -> None:
-    client = client_from_x_forwarded("192.0.2.43", "10.0.0.1", proto="gopher, https", hops=1)
-    assert client is not None and client.proto == "https"
+def test_an_untrusted_peer_gives_no_proto() -> None:
+    client = client_from_x_forwarded("192.0.2.43", "10.0.0.1", proto="https", hops=0)
+    assert client is not None and client.proto is None
 
 
 def test_without_a_header_the_peer_is_the_client() -> None:
@@ -113,3 +135,8 @@ def test_bad_arguments_raise() -> None:
         client_from_x_forwarded(None, "10.0.0.1", trusted=["10.0.0.1"], hops=1)
     with pytest.raises(ValueError, match="not an IP address"):
         client_from_x_forwarded(None, "localhost")
+    for name in ("proto_hops", "host_hops"):
+        with pytest.raises(ValueError, match="at least 1"):
+            client_from_x_forwarded(None, "10.0.0.1", **{name: 0})  # type: ignore[arg-type]
+        with pytest.raises(TypeError):
+            client_from_x_forwarded(None, "10.0.0.1", **{name: True})  # type: ignore[arg-type]

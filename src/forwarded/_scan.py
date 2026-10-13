@@ -26,6 +26,7 @@ class Pair:
 class Element:
     pairs: list[Pair] = field(default_factory=list)
     error: ForwardedError | None = None
+    names: set[str] = field(default_factory=set)
 
     def as_dict(self) -> dict[str, str]:
         return {pair.name: pair.value for pair in self.pairs}
@@ -80,8 +81,10 @@ class _Scanner:
         """Scan pairs from ``i``; return the index of the ending comma or the line length."""
         line = self.line
         while True:
-            if not self.strict:
-                i = self.skip_ows(i)
+            # Strict mode allows whitespace here only before the comma ending the element.
+            ows_end = self.skip_ows(i)
+            if not self.strict or ows_end >= len(line) or line[ows_end] == ",":
+                i = ows_end
             if i >= len(line) or line[i] == ",":
                 return i
             if line[i] == ";":
@@ -153,10 +156,10 @@ class _Scanner:
         raise _Resync(self.skip_to(i + 1, ","))
 
     def add(self, name: str, value: str, position: int) -> None:
-        pairs = self.element.pairs
-        if any(pair.name == name for pair in pairs):
+        if name in self.element.names:
             self.fail(f"parameter {name!r} occurs twice in one element", position)
-        pairs.append(Pair(name, value, position))
+        self.element.names.add(name)
+        self.element.pairs.append(Pair(name, value, position))
 
 
 def scan_line(line: str, *, strict: bool) -> list[Element]:

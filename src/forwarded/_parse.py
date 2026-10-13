@@ -12,6 +12,8 @@ from ._values import is_host, is_scheme
 
 def header_lines(header: str | Iterable[str]) -> list[str]:
     """Return the field lines of ``header``: a single string is one line."""
+    if isinstance(header, (bytes, bytearray)):
+        raise TypeError("header must be str or an iterable of str, not bytes")
     lines = [header] if isinstance(header, str) else list(header)
     for line in lines:
         if not isinstance(line, str):
@@ -35,11 +37,13 @@ def parse(header: str | Iterable[str], *, strict: bool = False) -> list[dict[str
 
     By default the parser is lenient: it skips pairs it cannot read, keeps the last of
     duplicated parameters, and drops empty elements. A double quote opens a quoted-string
-    only at the start of a value, and a broken one ends at the next comma, so a client
+    only at the start of a value, and after a broken one (unterminated, or followed by
+    junk) scanning resumes at the first comma after its opening quote, so a client
     cannot hide the elements proxies add after its own text.
 
     With ``strict=True`` anything outside the RFC 7239 grammar raises ``ForwardedError``:
-    whitespace other than around commas, a duplicated parameter, a header with no pair,
+    whitespace other than around commas, a duplicated parameter, a header with no
+    parameter at all (a choice of this library: the grammar allows empty elements),
     and ``for``/``by``/``host``/``proto`` values that break RFC 7239 sections 5 and 6.
     """
     elements = scan_header(header, strict=strict)

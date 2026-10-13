@@ -132,6 +132,18 @@ def test_peer_forms() -> None:
     assert _ip(client_from_forwarded(None, ip_address("fe80::1%eth0"))) == "[fe80::1]"
 
 
+def test_an_ipv4_peer_matches_a_mapped_ipv6_network() -> None:
+    client = client_from_forwarded("for=192.0.2.43", "10.0.0.2", trusted=["::ffff:10.0.0.0/104"])
+    assert _ip(client) == "192.0.2.43"
+
+
+def test_zones_are_dropped_from_ipv6_peers_only() -> None:
+    assert _ip(client_from_forwarded(None, "[fe80::1%eth0]:80")) == "[fe80::1]:80"
+    for remote in ("192.0.2.1%zz", " 10.0.0.2 ", "10.0.0.2	"):
+        with pytest.raises(ValueError, match="not an IP address"):
+            client_from_forwarded(None, remote)
+
+
 def test_several_lines_form_one_chain() -> None:
     lines = ["for=192.0.2.43", "for=198.51.100.17"]
     assert _ip(client_from_forwarded(lines, "10.0.0.1", trusted=["10.0.0.1"])) == "198.51.100.17"
@@ -150,7 +162,7 @@ def test_bad_arguments_raise() -> None:
         client_from_forwarded(None, "10.0.0.1", hops=-1)
     with pytest.raises(TypeError):
         client_from_forwarded(None, "10.0.0.1", hops=True)
-    with pytest.raises(TypeError, match="not a str"):
+    with pytest.raises(TypeError, match="iterable"):
         client_from_forwarded(None, "10.0.0.1", trusted="10.0.0.0/8")
     with pytest.raises(TypeError):
         client_from_forwarded(None, "10.0.0.1", trusted=[10])  # type: ignore[list-item]
