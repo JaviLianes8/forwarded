@@ -1,0 +1,38 @@
+{
+  "rfc7239.txt": {
+    "title": "RFC 7239, Forwarded HTTP Extension (June 2014)",
+    "url": "https://www.rfc-editor.org/rfc/rfc7239.txt",
+    "revision": "RFC 7239 as published (RFCs are immutable)",
+    "fetched": "2026-10-13",
+    "licence": "IETF Trust Legal Provisions",
+    "size": 35003,
+    "sha256": "f15c45c9e079684bc4284d041be63285923962448cb0d8540d54106c68c2a40d"
+  },
+  "rfc9110.txt": {
+    "title": "RFC 9110, HTTP Semantics (June 2022)",
+    "url": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+    "revision": "RFC 9110 as published (RFCs are immutable)",
+    "fetched": "2026-10-13",
+    "licence": "IETF Trust Legal Provisions",
+    "size": 502941,
+    "sha256": "21c1cdce6ab0e5509b04d84a28000836c7a087cf786efe6f04877ebfff47232a"
+  },
+  "rfc3986.txt": {
+    "title": "RFC 3986, Uniform Resource Identifier (URI): Generic Syntax (January 2005)",
+    "url": "https://www.rfc-editor.org/rfc/rfc3986.txt",
+    "revision": "RFC 3986 as published (RFCs are immutable)",
+    "fetched": "2026-10-13",
+    "licence": "IETF Trust Legal Provisions",
+    "size": 141811,
+    "sha256": "3102dae4b68cebe40337730312fcb612297b8928547267e8b3d1ee6002b2d683"
+  },
+  "mdn-x-forwarded-for.md": {
+    "title": "MDN Web Docs, X-Forwarded-For header",
+    "url": "https://raw.githubusercontent.com/mdn/content/9a3fb53f53855a17cbbf0aae4b99d71af83f00dc/files/en-us/web/http/reference/headers/x-forwarded-for/index.md",
+    "revision": "mdn/content commit 9a3fb53f53855a17cbbf0aae4b99d71af83f00dc",
+    "fetched": "2026-10-13",
+    "licence": "CC-BY-SA 2.5",
+    "size": 7214,
+    "sha256": "078920f3d80b608b21ed27aa903910411cfa35495a9f72fef78f43977f06da35"
+  }
+}
