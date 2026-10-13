@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ._errors import ForwardedError
-from ._tokens import OWS, is_qdtext, is_quotable, is_token
+from ._tokens import OWS, is_quotable, is_token
 
 
 @dataclass
@@ -145,7 +145,7 @@ class _Scanner:
                 out.append(line[j + 1])
                 j += 2
                 continue
-            if self.strict and not is_qdtext(char):
+            if self.strict and not is_quotable(char):
                 self.fail("invalid character in a quoted-string", j)
             out.append(char)
             j += 1
@@ -156,7 +156,6 @@ class _Scanner:
         pairs = self.element.pairs
         if any(pair.name == name for pair in pairs):
             self.fail(f"parameter {name!r} occurs twice in one element", position)
-            pairs[:] = [pair for pair in pairs if pair.name != name]
         pairs.append(Pair(name, value, position))
 
 

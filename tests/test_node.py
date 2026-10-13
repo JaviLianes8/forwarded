@@ -57,6 +57,8 @@ def test_ports_follow_the_five_digit_grammar() -> None:
         "2001:db8::1",
         "[2001:db8::1",
         "[2001:db8::1]x",
+        "[2001:db8::1]x80",
+        "[2001:db8::1]_x",
         "[2001:db8::1]:",
         "[192.0.2.1]",
         "[fe80::1%eth0]",

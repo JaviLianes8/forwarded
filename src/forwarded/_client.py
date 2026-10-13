@@ -125,7 +125,7 @@ def _walk(
             continue
         if node is None:
             return None
-        if trust.hops is not None or not trust.by_address(node):
+        if not trust.by_address(node):
             return index, node, position
     if trust.hops is not None or chain[0] is None:
         return None

@@ -75,7 +75,7 @@ def parse_node(value: str) -> Node:
     """
     if value.startswith("["):
         close = value.find("]")
-        ip6 = _ipv6(value[1:close]) if close > 0 else None
+        ip6 = _ipv6(value[1:close]) if close != -1 else None
         if ip6 is None:
             raise ForwardedError(f"{value!r} is not a bracketed IPv6 address")
         node = Node(ip=ip6)
@@ -94,7 +94,6 @@ def parse_node(value: str) -> Node:
 
 def parse_lenient_node(value: str) -> Node | None:
     """Read an X-Forwarded-For entry: the RFC 7239 forms plus a bare IPv6 address."""
-    value = value.strip(" \t")
     try:
         return parse_node(value)
     except ForwardedError:

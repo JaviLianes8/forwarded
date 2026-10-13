@@ -22,11 +22,6 @@ def is_quotable(char: str) -> bool:
     return code == 0x09 or 0x20 <= code <= 0x7E or 0x80 <= code <= 0xFF
 
 
-def is_qdtext(char: str) -> bool:
-    """Return whether ``char`` may appear unescaped inside a quoted-string."""
-    return is_quotable(char) and char not in '"\\'
-
-
 def quote(value: str) -> str:
     """Wrap ``value`` in a quoted-string, escaping backslash and double quote."""
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
