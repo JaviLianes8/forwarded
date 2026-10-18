@@ -6,6 +6,53 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-18
+
+The public API is now stable: the ten names in `forwarded.__all__`, their signatures,
+defaults and error types follow Semantic Versioning from this release on.
+
+### Security
+
+- An IPv6 network in `trusted` no longer covers IPv4 addresses unless it is a genuine
+  IPv4-mapped network (inside `::ffff:0:0/96`, prefix 96 or longer), which then covers
+  the IPv4 addresses it names. In 0.2.0 an IPv4 address matched any IPv6 network that
+  held its IPv4-mapped form, so `trusted=["::ffff:10.0.0.0/8"]` (read as `::/8`),
+  `["::/1"]` or `["::/0"]` made every IPv4 client a trusted proxy, and the client's
+  own `X-Forwarded-For` or `Forwarded` entry became its address. This is the flaw
+  fixed in proxy-addr 2.0.8 (CVE-2026-90711). A network written with an IPv4-mapped
+  address and a prefix shorter than 96, such as `::ffff:10.0.0.0/8`, now raises
+  `ValueError` instead of meaning `::/8`; write the IPv4 network (`10.0.0.0/8`) or the
+  full mapped form (`::ffff:10.0.0.0/104`).
+
+### Changed
+
+- IPv4-mapped IPv6 addresses are written `::ffff:192.0.2.1` (RFC 5952 section 5) by
+  `str(Node)`, `build` and `convert_x_forwarded_for` on every Python version; on
+  CPython 3.11.5, for example, 0.2.0 wrote `::ffff:c000:201`.
+- `Node`, `Client` and `ForwardedError` show and pickle as `forwarded.<Name>` instead
+  of the private module that defines them; pickles made by 0.2.0 still load.
+- `Client` checks its fields: `TypeError` for a `node` that is not a `Node`, a `proto`
+  or `host` that is not a `str` or `None`, or a `proxies` that is not an `int`, and
+  `ValueError` for a negative `proxies`.
+- `Node` and `Client` store plain `str`, `int` and `ipaddress` values when given
+  subclasses.
+
+### Fixed
+
+- `TypeError` instead of `AttributeError` for `Node(name=5)`, `parse_node(None)`,
+  `build({"for": "_a"})` and `build("for=_a")`; `build([None])` raises `TypeError`
+  instead of `ForwardedError`, and a header argument that is not iterable gets a
+  message that names the argument.
+- Error messages quote at most 80 characters of the input; 0.2.0 quoted the whole
+  value (a 1 MB message for a 1 MB peer address). A `trusted` item whose `repr` fails,
+  or an integer past the digit limit, raises `TypeError` instead of that failure.
+- `client_from_x_forwarded` checks the types of `proto` and `host` even when it does
+  not use them.
+
+### Added
+
+- Runnable examples in every public docstring, run as doctests, and a GUIDE.
+
 ## [0.2.0]
 
 ### Added

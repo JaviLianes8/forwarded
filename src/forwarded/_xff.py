@@ -14,8 +14,13 @@ def parse_x_forwarded(header: str | Iterable[str]) -> list[str]:
     """Split an X-Forwarded-* header into its comma-separated values, in order.
 
     ``header`` is one field value or an iterable of them, one per line received; the lines
-    form a single list, the first value of the first line coming first. Whitespace around
-    values is removed and empty values are dropped. The values themselves are not checked.
+    form a single list, the first value of the first line coming first. Spaces and tabs
+    around values are removed and empty values are dropped. The values themselves are not
+    checked.
+
+    >>> from forwarded import parse_x_forwarded
+    >>> parse_x_forwarded(["203.0.113.195, 2001:db8::1", " , 198.51.100.178"])
+    ['203.0.113.195', '2001:db8::1', '198.51.100.178']
     """
     return [
         value
@@ -32,6 +37,10 @@ def convert_x_forwarded_for(header: str | Iterable[str]) -> str:
     and ports are kept. An entry that is not an address or a node identifier becomes
     ``for=unknown`` so the number and order of hops stay intact. No entries give an
     empty string.
+
+    >>> from forwarded import convert_x_forwarded_for
+    >>> convert_x_forwarded_for("192.0.2.43, 2001:db8:cafe::17, 192.0.2.1:8080, garbage")
+    'for=192.0.2.43, for="[2001:db8:cafe::17]", for="192.0.2.1:8080", for=unknown'
     """
     nodes = [
         parse_lenient_node(entry) or Node(name="unknown") for entry in parse_x_forwarded(header)

@@ -4,20 +4,27 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from ._errors import ForwardedError
+from ._errors import ForwardedError, kind, show
 from ._node import parse_node
 from ._scan import Element, Pair, scan_line
 from ._values import is_host, is_scheme
 
 
 def header_lines(header: str | Iterable[str]) -> list[str]:
-    """Return the field lines of ``header``: a single string is one line."""
-    if isinstance(header, (bytes, bytearray)):
+    """Return the field lines of ``header`` as plain strings: a single string is one line."""
+    if isinstance(header, str):
+        return [str.__str__(header)]
+    if isinstance(header, (bytes, bytearray, memoryview)):
         raise TypeError("header must be str or an iterable of str, not bytes")
-    lines = [header] if isinstance(header, str) else list(header)
-    for line in lines:
+    try:
+        items = iter(header)
+    except TypeError:
+        raise TypeError(f"header must be str or an iterable of str, not {kind(header)}") from None
+    lines = []
+    for line in items:
         if not isinstance(line, str):
-            raise TypeError(f"header lines must be str, not {type(line).__name__}")
+            raise TypeError(f"header lines must be str, not {kind(line)}")
+        lines.append(str.__str__(line))
     return lines
 
 
@@ -45,6 +52,16 @@ def parse(header: str | Iterable[str], *, strict: bool = False) -> list[dict[str
     whitespace other than around commas, a duplicated parameter, a header with no
     parameter at all (a choice of this library: the grammar allows empty elements),
     and ``for``/``by``/``host``/``proto`` values that break RFC 7239 sections 5 and 6.
+
+    >>> from forwarded import parse
+    >>> parse('for="[2001:db8:cafe::17]:4711";Proto=https, for=192.0.2.43')
+    [{'for': '[2001:db8:cafe::17]:4711', 'proto': 'https'}, {'for': '192.0.2.43'}]
+    >>> parse(['for="192.0.2.43', "for=198.51.100.17"])
+    [{'for': '198.51.100.17'}]
+    >>> parse("for=192.0.2.43; proto=http", strict=True)
+    Traceback (most recent call last):
+      ...
+    forwarded.ForwardedError: expected a parameter name followed by '=' at offset 15
     """
     elements = scan_header(header, strict=strict)
     if strict:
@@ -61,9 +78,9 @@ def check_value(name: str, value: str) -> None:
     if name in ("for", "by"):
         parse_node(value)
     elif name == "host" and not is_host(value):
-        raise ForwardedError(f"host {value!r} is not a valid Host value")
+        raise ForwardedError(f"host {show(value)} is not a valid Host value")
     elif name == "proto" and not is_scheme(value):
-        raise ForwardedError(f"proto {value!r} is not a URI scheme")
+        raise ForwardedError(f"proto {show(value)} is not a URI scheme")
 
 
 def _check_pair(pair: Pair) -> None:
