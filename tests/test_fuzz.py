@@ -10,6 +10,7 @@ from __future__ import annotations
 import random
 import time
 from collections.abc import Callable
+from functools import partial
 
 import pytest
 from addresses import address, networks, spelled
@@ -98,8 +99,10 @@ def test_client_resolution_returns_a_client_from_the_chain_or_none() -> None:
             assert 0 <= client.proxies <= len(parse_x_forwarded(xff))
         header = convert_x_forwarded_for(xff)
         hops = rng.choice([None, 0, 1, 2, 5])
-        kwargs = {"hops": hops} if hops is not None else {"trusted": trusted}
-        found = client_from_forwarded(header, peer, **kwargs)  # type: ignore[arg-type]
+        if hops is None:
+            found = client_from_forwarded(header, peer, trusted=trusted)
+        else:
+            found = client_from_forwarded(header, peer, hops=hops)
         assert found is None or found.proxies <= len(parse(header))
 
 
@@ -129,11 +132,10 @@ HOSTILE = [
 @pytest.mark.parametrize("unit", HOSTILE)
 def test_every_parser_runs_in_linear_time(unit: str) -> None:
     small, large = unit * 20_000, unit * 80_000
-    for function in (parse, parse_x_forwarded, convert_x_forwarded_for):
-        ratio = _seconds(lambda f=function: f(large)) / max(
-            _seconds(lambda f=function: f(small)), 1e-4
-        )
-        assert ratio < 12, (function.__name__, unit, ratio)
+    functions: list[Callable[[str], object]] = [parse, parse_x_forwarded, convert_x_forwarded_for]
+    for function in functions:
+        ratio = _seconds(partial(function, large)) / max(_seconds(partial(function, small)), 1e-4)
+        assert ratio < 12, (function, unit, ratio)
     for text in (small, large):
         with pytest.raises(ForwardedError) as caught:
             parse_node(text)
