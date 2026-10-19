@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-10-18
+## [1.0.0] - 2026-10-19
 
 The public API is now stable: the ten names in `forwarded.__all__`, their signatures,
 defaults and error types follow Semantic Versioning from this release on.
@@ -48,10 +48,15 @@ defaults and error types follow Semantic Versioning from this release on.
   or an integer past the digit limit, raises `TypeError` instead of that failure.
 - `client_from_x_forwarded` checks the types of `proto` and `host` even when it does
   not use them.
+- `scripts/release.ps1` refuses only a version PyPI already has, and only from a clean
+  tree; 0.2.0's refused any upload once the name existed.
 
 ### Added
 
-- Runnable examples in every public docstring, run as doctests, and a GUIDE.
+- Runnable examples in every public docstring, run as doctests.
+- GUIDE.md: the trust walk, IPv6 and IPv4-mapped trust rules, lenient and strict
+  parsing, errors, and the differences from proxy-addr, Werkzeug, uvicorn, Hypercorn
+  and aiohttp.
 
 ## [0.2.0]
 

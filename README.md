@@ -1,9 +1,15 @@
 # forwarded
 
+[![Lianes8 Certified](https://lianes8studio.com/certified/lianes8-certified-badge.svg)](https://lianes8studio.com/certified)
+
 Parse and build the HTTP `Forwarded` header (RFC 7239), read `X-Forwarded-For`, and find
 the real client behind a chain of proxies without trusting what the client wrote.
 
-Typed, zero dependencies, Python 3.10+.
+Typed, zero dependencies, Python 3.10+. The
+[guide](https://github.com/JaviLianes8/forwarded/blob/main/GUIDE.md) explains the trust
+model, lenient and strict parsing, and how the results differ from other tools; the
+[changelog](https://github.com/JaviLianes8/forwarded/blob/main/CHANGELOG.md) lists what
+changed in each release.
 
 ## Install
 
@@ -183,12 +189,25 @@ their hashes, and their tests skip until then.
 RFC 7239 defines one `Forwarded` header for what the `X-Forwarded-*` family did ad hoc,
 but reading either one safely is easy to get wrong: splitting on commas inside quotes,
 unquoting bracketed IPv6, or trusting the leftmost address that any client can forge.
-This library is just the codec and the trust walk, both headers, no framework and no
-runtime dependencies.
+
+The Python tools that exist each cover part of it (checked against the versions named,
+see the [guide](https://github.com/JaviLianes8/forwarded/blob/main/GUIDE.md#differences-from-other-tools)):
+
+- Werkzeug's `ProxyFix` and uvicorn's `ProxyHeadersMiddleware` read `X-Forwarded-*` only,
+  and only as middleware for their own server interface. `ProxyFix` trusts by hop count
+  and accepts a value that is not an address as the client.
+- Hypercorn's `ProxyFixMiddleware` reads `Forwarded` without quoted-strings, so a quoted
+  IPv6 client keeps its quotes.
+- aiohttp parses `Forwarded` into mappings but leaves picking the client to you.
+
+This library is the codec and the trust walk for both headers, as plain functions you can
+call from any framework, a log processor or a proxy, with no runtime dependencies. If you
+already run one of the middlewares above and only need `X-Forwarded-For` by hop count, it
+may be all you need.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/JaviLianes8/forwarded/blob/main/LICENSE).
 
 ## Links
 

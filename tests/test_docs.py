@@ -88,3 +88,15 @@ def test_no_em_dash_anywhere_in_the_tree() -> None:
 def test_source_files_stay_under_two_hundred_lines() -> None:
     for path in [*ROOT.joinpath("src").rglob("*.py"), *ROOT.joinpath("tests").rglob("*.py")]:
         assert len(path.read_text(encoding="utf-8").splitlines()) <= 200, path
+
+
+def test_readme_links_are_absolute_so_they_work_on_pypi() -> None:
+    links = re.findall(r"\]\(([^)]+)\)", README)
+    assert len(links) >= 5
+    assert all(link.startswith("https://") for link in links), links
+
+
+def test_the_guide_covers_every_public_name_it_documents() -> None:
+    guide = (ROOT / "GUIDE.md").read_text(encoding="utf-8")
+    for name in ("client_from_forwarded", "client_from_x_forwarded", "parse", "build"):
+        assert f"`{name}" in guide, name
