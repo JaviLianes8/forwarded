@@ -242,6 +242,31 @@ uvicorn 0.54.0, Hypercorn 0.18.0 and aiohttp 3.14.5. The system interpreter here
 uvicorn 0.29.0 rather than the pinned 0.54.0, and its uvicorn oracle test fails for that
 reason only.
 
+### Round 2 (reviewed head 419f92f, fixes in 7c51179)
+
+Lenses b, c and d reported PASS with no finding. Lens a confirmed A1 to A7 fixed and
+raised one new finding; lens e confirmed its round 1 findings fixed and raised five new
+surviving mutants. Every finding below is fixed in 7c51179. The one behaviour fix (a/F1,
+also e/N2) got its contract test first, and that test failed on 419f92f.
+
+| Lens | Id | Finding | Change |
+| --- | --- | --- | --- |
+| a, e | F1, N2 | `client_from_x_forwarded` type errors said `header` for `x_forwarded_for`, `proto` and `host`; the `proto`/`host` TypeError was untested (mutants S11, S12) | the header-splitting helper takes the argument name, so messages say `x_forwarded_for`, `proto` or `host`; a `bytearray` or `memoryview` is named by its own type instead of `bytes`. `test_a_proto_or_host_of_the_wrong_type_names_the_argument` and `test_an_x_forwarded_for_of_the_wrong_type_names_the_argument` pin the exact messages; CHANGELOG and GUIDE updated. `parse_x_forwarded` keeps its public signature |
+| e | N1 | mutant S06 (`_count` returns the caller's value, not the plain int) survived | `test_a_header_count_that_lies_is_used_as_its_plain_value`: a lying `proto_hops`/`host_hops` of 2 with one trusted proxy gives `proto` and `host` `None` |
+| e | N3 | mutant S13 (no `node` type check in `Client`) survived | `test_a_client_node_of_the_wrong_type_raises` pins `node must be a Node, not int` |
+| e | N4 | mutant S17 (`not both` checked IPv4 networks only) survived | `test_trusted_and_hops_together_raise_for_either_family` runs an IPv4 and an IPv6 network through both client functions |
+| e | N5 | mutant S18 (`bytearray` dropped from the decode hint) survived | `test_bytes_entries_ask_to_be_decoded` is parametrized with `bytes` and `bytearray` |
+
+Mutation check of the new contracts: S06, S11, S12, S13, S17, S18 and the revert of the
+argument-name fix were each applied alone to a copy of 7c51179 and the whole suite run;
+all 7 were killed (first failing test: the new contract named in the table above).
+
+Gates at 7c51179, run on this PC: `ruff format --check .`, `ruff check .` and
+`mypy --strict src` exit 0 (`mypy --strict src tests` too). `pytest` exits 0 with 463
+passed and 2 skipped (the opt-in wheel e2e), run with Werkzeug 3.1.9, uvicorn 0.54.0,
+Hypercorn 0.18.0 and aiohttp 3.14.5 installed. The system interpreter's uvicorn 0.29.0
+still fails the uvicorn oracle test for that reason only, as in round 1.
+
 ### Disputed findings
 
 None.
