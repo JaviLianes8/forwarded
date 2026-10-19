@@ -6,6 +6,76 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-19
+
+The public API is now stable: the ten names in `forwarded.__all__`, their signatures,
+defaults and error types follow Semantic Versioning from this release on.
+
+### Security
+
+- An IPv6 network in `trusted` no longer covers IPv4 addresses unless it is a genuine
+  IPv4-mapped network (inside `::ffff:0:0/96`, prefix 96 or longer), which then covers
+  the IPv4 addresses it names. In 0.2.0 an IPv4 address matched any IPv6 network that
+  held its IPv4-mapped form, so `trusted=["::ffff:10.0.0.0/8"]` (read as `::/8`),
+  `["::/1"]` or `["::/0"]` made every IPv4 client a trusted proxy, and the client's
+  own `X-Forwarded-For` or `Forwarded` entry became its address. This is the flaw
+  fixed in proxy-addr 2.0.8 (CVE-2026-90711). A network written with an IPv4-mapped
+  address and a prefix shorter than 96, such as `::ffff:10.0.0.0/8`, now raises
+  `ValueError` instead of meaning `::/8`; write the IPv4 network (`10.0.0.0/8`) or the
+  full mapped form (`::ffff:10.0.0.0/104`).
+
+### Changed
+
+- IPv4-mapped IPv6 addresses are written `::ffff:192.0.2.1` (the mixed notation RFC 5952
+  section 5 recommends for them) by `str(Node)`, `build` and `convert_x_forwarded_for` on
+  every Python version; on CPython 3.11.5, for example, 0.2.0 wrote `::ffff:c000:201`.
+  Other addresses section 5 allows in mixed notation, such as RFC 2765's IPv4-translated
+  `::ffff:0:a.b.c.d`, stay hexadecimal.
+- `Node`, `Client` and `ForwardedError` show and pickle as `forwarded.<Name>` instead
+  of the private module that defines them; pickles made by 0.2.0 still load.
+- `Client` checks its fields: `TypeError` for a `node` that is not a `Node`, a `proto`
+  or `host` that is not a `str` or `None`, or a `proxies` that is not an `int`, and
+  `ValueError` for a negative `proxies`.
+- `Node` and `Client` store plain `str`, `int` and `ipaddress` values when given
+  subclasses.
+- In strict mode, `ForwardedError.position` for a repeated parameter is the offset of
+  its second name, as for every other syntax error; 0.2.0 gave the offset of that
+  name's value (`for=192.0.2.43;for=192.0.2.44` now reports offset 15, not 19).
+
+### Fixed
+
+- `TypeError` instead of `AttributeError` for `Node(name=5)`, `parse_node(None)`,
+  `build({"for": "_a"})` and `build("for=_a")`; `build([None])` raises `TypeError`
+  instead of `ForwardedError`, and a header argument of the wrong type gets a
+  message that names the argument: `x_forwarded_for`, `proto` or `host` for
+  `client_from_x_forwarded`, `header` elsewhere. A `bytearray` or `memoryview` header
+  is named by its own type rather than called `bytes`.
+- Error messages quote at most 80 characters of the input; 0.2.0 quoted the whole
+  value (a 1 MB message for a 1 MB peer address). A `trusted` item of the wrong type
+  raises `TypeError` naming only its type (a `bytes` item is told to decode first): its
+  `repr`, which could hold a secret, fail, or take long to build, is never computed.
+- `Client.proxies`, `hops`, `proto_hops` and `host_hops` are checked as the plain `int`
+  they hold, so an `int` subclass whose comparisons lie cannot pass a negative or zero
+  count; a `proto_hops` of 0 used to read the leftmost X-Forwarded-Proto value, which
+  the client controls.
+- `client_from_x_forwarded` checks the types of `proto` and `host` even when it does
+  not use them.
+- The README names the first parameter of `client_from_x_forwarded` `x_forwarded_for`,
+  as the code always has; 0.2.0's README called it `header`.
+- `scripts/release.ps1` refuses only a version PyPI already has, and only from a clean
+  tree; 0.2.0's refused any upload once the name existed. It also stops when `git`, the
+  build or `twine check` fails, where it used to go on and upload.
+- The docs of `client_from_forwarded` and `client_from_x_forwarded` list the errors they
+  raise and say that a `Forwarded` element with any syntax error, a repeated parameter
+  included, counts as malformed at the boundary.
+
+### Added
+
+- Runnable examples in every public docstring, run as doctests.
+- GUIDE.md: the trust walk, IPv6 and IPv4-mapped trust rules, lenient and strict
+  parsing, errors, and the differences from proxy-addr, Werkzeug, uvicorn, Hypercorn
+  and aiohttp.
+
 ## [0.2.0]
 
 ### Added

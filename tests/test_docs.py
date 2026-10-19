@@ -43,7 +43,7 @@ def test_every_readme_example_runs_and_prints_its_comment() -> None:
         assert out.getvalue().splitlines() == expected
         checked += len(expected)
     assert len(_python_blocks()) == 4
-    assert checked == 16
+    assert checked == 17
 
 
 def test_every_print_in_the_readme_shows_its_output() -> None:
@@ -88,3 +88,26 @@ def test_no_em_dash_anywhere_in_the_tree() -> None:
 def test_source_files_stay_under_two_hundred_lines() -> None:
     for path in [*ROOT.joinpath("src").rglob("*.py"), *ROOT.joinpath("tests").rglob("*.py")]:
         assert len(path.read_text(encoding="utf-8").splitlines()) <= 200, path
+
+
+def test_readme_links_are_absolute_so_they_work_on_pypi() -> None:
+    links = re.findall(r"\]\(([^)]+)\)", README)
+    assert len(links) >= 5
+    assert all(link.startswith("https://") for link in links), links
+
+
+def test_the_guide_covers_every_public_name_it_documents() -> None:
+    guide = (ROOT / "GUIDE.md").read_text(encoding="utf-8")
+    for name in ("client_from_forwarded", "client_from_x_forwarded", "parse", "build"):
+        assert f"`{name}" in guide, name
+
+
+def test_the_release_script_stops_when_a_native_command_fails() -> None:
+    # $ErrorActionPreference does not stop on a native command's non-zero exit.
+    script = (ROOT / "scripts" / "release.ps1").read_text(encoding="utf-8")
+    code = [line for line in script.splitlines() if not line.lstrip().startswith("#")]
+    natives = [line for line in code if re.search(r"(^|[{(\s])(python|git)\s", line)]
+    assert len(natives) == 4, natives
+    assert all("Invoke-Native" in line for line in natives), natives
+    helper = script.split("function Invoke-Native", 1)[1].split("\n}", 1)[0]
+    assert "$LASTEXITCODE -ne 0" in helper and "throw" in helper

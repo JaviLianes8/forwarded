@@ -31,15 +31,16 @@ build([{"for": Node(name="_a")}])
 """
 
 
-@pytest.fixture(scope="module")
-def mypy_output(tmp_path_factory: pytest.TempPathFactory) -> str:
-    folder = tmp_path_factory.mktemp("typing")
-    target = folder / "snippet.py"
-    target.write_text(SNIPPET, encoding="utf-8")
+def _mypy(folder: Path, files: dict[str, str]) -> str:
+    """Run ``mypy --strict`` on ``files`` (name -> source) written into ``folder``."""
+    targets = []
+    for name, source in files.items():
+        (folder / name).write_text(source, encoding="utf-8")
+        targets.append(str(folder / name))
     config = folder / "mypy.ini"
     config.write_text(f"[mypy]\nmypy_path = {SRC.as_posix()}\n", encoding="utf-8")
     cache = str(folder / "cache")
-    args = ["--strict", "--config-file", str(config), "--cache-dir", cache, str(target)]
+    args = ["--strict", "--config-file", str(config), "--cache-dir", cache, *targets]
     try:
         from mypy import api
     except ImportError:
@@ -51,6 +52,11 @@ def mypy_output(tmp_path_factory: pytest.TempPathFactory) -> str:
         return result.stdout + result.stderr
     out, err, _ = api.run(args)
     return str(out) + str(err)
+
+
+@pytest.fixture(scope="module")
+def mypy_output(tmp_path_factory: pytest.TempPathFactory) -> str:
+    return _mypy(tmp_path_factory.mktemp("typing"), {"snippet.py": SNIPPET})
 
 
 def test_functions_return_plain_types(mypy_output: str) -> None:
@@ -84,3 +90,12 @@ def _revealed(output: str, line: int) -> str:
     assert match, output
     # Older mypy releases spell builtins with their module prefix.
     return match.group(1).replace("builtins.", "")
+
+
+def test_the_readme_examples_pass_strict_type_checking(tmp_path: Path) -> None:
+    readme = (SRC.parent / "README.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```python\n(.*?)```", readme, flags=re.DOTALL)
+    assert len(blocks) == 4
+    files = {f"readme_{index}.py": block for index, block in enumerate(blocks)}
+    output = _mypy(tmp_path, files)
+    assert "Success: no issues found in 4 source files" in output, output

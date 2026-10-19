@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,13 @@ def read_upstream(name: str) -> str:
     return body.decode("utf-8-sig")
 
 
+def page_text(markup: str) -> str:
+    """Return an HTML page as plain text: scripts, styles and tags removed, lines kept."""
+    text = re.sub(r"<(script|style)\b.*?</\1>", " ", markup, flags=re.DOTALL)
+    text = html.unescape(re.sub(r"<[^>]+>", " ", text))
+    return re.sub(r"[ \t]+", " ", text)
+
+
 @pytest.fixture(scope="session")
 def rfc7239() -> str:
     """RFC 7239, see tests/upstream/MANIFEST.json for its source."""
@@ -40,6 +49,18 @@ def rfc9110() -> str:
 def rfc3986() -> str:
     """RFC 3986, see tests/upstream/MANIFEST.json for its source."""
     return read_upstream("rfc3986.txt")
+
+
+@pytest.fixture(scope="session")
+def rfc5952() -> str:
+    """RFC 5952, see tests/upstream/MANIFEST.json for its source."""
+    return read_upstream("rfc5952.txt")
+
+
+@pytest.fixture(scope="session")
+def rfc7239_errata() -> str:
+    """The RFC 7239 errata page as text, see tests/upstream/MANIFEST.json for its source."""
+    return page_text(read_upstream("rfc7239-errata.html"))
 
 
 @pytest.fixture(scope="session")

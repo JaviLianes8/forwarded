@@ -29,10 +29,13 @@ def test_every_exported_name_resolves() -> None:
         assert hasattr(forwarded, name)
 
 
-def test_exported_objects_live_in_private_modules() -> None:
+def test_functions_live_in_private_modules_and_classes_at_the_top() -> None:
     for name in forwarded.__all__:
         module = getattr(forwarded, name).__module__
-        assert module.startswith("forwarded._"), (name, module)
+        if isinstance(getattr(forwarded, name), type):
+            assert module == "forwarded", (name, module)
+        else:
+            assert module.startswith("forwarded._"), (name, module)
 
 
 def test_version_is_a_three_part_string() -> None:

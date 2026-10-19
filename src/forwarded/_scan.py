@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ._errors import ForwardedError
+from ._errors import ForwardedError, show
 from ._tokens import OWS, is_quotable, is_token
 
 
@@ -120,9 +120,9 @@ class _Scanner:
         else:
             value, end = self.token(i)
             if not value:
-                self.fail(f"parameter {name!r} needs a token or a quoted-string", i)
+                self.fail(f"parameter {show(name)} needs a token or a quoted-string", i)
                 return end
-        self.add(name.lower(), value, i)
+        self.add(name.lower(), value, i, start)
         return end if self.strict else self.skip_ows(end)
 
     def token(self, i: int) -> tuple[str, int]:
@@ -155,9 +155,9 @@ class _Scanner:
         self.fail("unterminated quoted-string", i)
         raise _Resync(self.skip_to(i + 1, ","))
 
-    def add(self, name: str, value: str, position: int) -> None:
+    def add(self, name: str, value: str, position: int, name_position: int) -> None:
         if name in self.element.names:
-            self.fail(f"parameter {name!r} occurs twice in one element", position)
+            self.fail(f"parameter {show(name)} occurs twice in one element", name_position)
         self.element.names.add(name)
         self.element.pairs.append(Pair(name, value, position))
 

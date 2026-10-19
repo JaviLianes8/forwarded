@@ -121,3 +121,18 @@ def test_build_errors_are_value_errors_without_an_offset() -> None:
 def test_build_rejects_values_of_the_wrong_type(element: dict[object, object]) -> None:
     with pytest.raises(TypeError):
         build([element])  # type: ignore[list-item]
+
+
+@pytest.mark.parametrize(
+    "elements", [[None], ["for=_a"], [[("for", "_a")]], "for=_a", {"for": "_a"}, 5, None]
+)
+def test_build_rejects_elements_that_are_not_mappings_with_type_error(elements: object) -> None:
+    with pytest.raises(TypeError, match="mapping") as caught:
+        build(elements)  # type: ignore[arg-type]
+    assert not isinstance(caught.value, ValueError)
+
+
+@pytest.mark.parametrize("elements", [{}, {"for": "unknown"}])
+def test_build_rejects_a_single_mapping_even_when_empty(elements: dict[str, str]) -> None:
+    with pytest.raises(TypeError, match=r"^elements must be an iterable of mappings, not a dict$"):
+        build(elements)  # type: ignore[arg-type]

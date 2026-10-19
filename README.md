@@ -1,9 +1,15 @@
 # forwarded
 
+[![Lianes8 Certified](https://lianes8studio.com/certified/lianes8-certified-badge.svg)](https://lianes8studio.com/certified)
+
 Parse and build the HTTP `Forwarded` header (RFC 7239), read `X-Forwarded-For`, and find
 the real client behind a chain of proxies without trusting what the client wrote.
 
-Typed, zero dependencies, Python 3.10+.
+Typed, zero dependencies, Python 3.10+. The
+[guide](https://github.com/JaviLianes8/forwarded/blob/main/GUIDE.md) explains the trust
+model, lenient and strict parsing, and how the results differ from other tools; the
+[changelog](https://github.com/JaviLianes8/forwarded/blob/main/CHANGELOG.md) lists what
+changed in each release.
 
 ## Install
 
@@ -26,6 +32,7 @@ client = client_from_x_forwarded(
     proto="https",  # X-Forwarded-Proto, set by the edge proxy
     trusted=["10.0.0.0/8"],  # your proxies: addresses or networks
 )
+assert client is not None  # None when the client cannot be told (see below)
 print(client.node)
 # 203.0.113.195
 print(client.proto, client.proxies)
@@ -33,27 +40,38 @@ print(client.proto, client.proxies)
 
 # A client that writes its own entries cannot get past your proxies.
 spoofed = client_from_x_forwarded("1.1.1.1, 203.0.113.195", "10.0.0.2", trusted=["10.0.0.0/8"])
+assert spoofed is not None
 print(spoofed.node)
 # 203.0.113.195
 
 # The same with Forwarded, where proto and host travel in the client's own element.
 header = 'for="[2001:db8::7]:4711";proto=https;host=shop.example, for=10.0.0.7'
 client = client_from_forwarded(header, "10.0.0.2", trusted=["10.0.0.0/8"])
+assert client is not None
 print(client.node, client.node.ip, client.node.port)
 # [2001:db8::7]:4711 2001:db8::7 4711
 print(client.proto, client.host)
 # https shop.example
 
 # When the proxies have no fixed addresses, trust a number of hops instead.
-print(client_from_x_forwarded("203.0.113.195, 198.51.100.4", "172.16.0.9", hops=1).node)
+by_hops = client_from_x_forwarded("203.0.113.195, 198.51.100.4", "172.16.0.9", hops=1)
+if by_hops is not None:
+    print(by_hops.node)
 # 198.51.100.4
+
+# A malformed entry where the walk stops gives None, never a guess.
+print(client_from_x_forwarded("203.0.113.195, junk", "10.0.0.2", trusted=["10.0.0.0/8"]))
+# None
 ```
 
 The walk goes from the right, starting with the peer address: while an entry is a trusted
 proxy it moves on, and the first entry that is not is the client. If the peer itself is
 not trusted, the headers are ignored and the peer is the client. The result is `None`
-when the client cannot be told: the entry at the boundary is malformed, or there are
-fewer entries than `hops`. When every address is trusted, the leftmost one is returned
+when the client cannot be told: the entry at the boundary is malformed (with
+`Forwarded`, that means its whole element: any syntax error in it, such as a repeated
+parameter or an unreadable pair, counts even when `parse` still reads a `for` from it),
+it is a `Forwarded` element with no `for`, `remote` is `None` and not covered by `hops`,
+or there are fewer entries than `hops`. When every address is trusted, the leftmost one is returned
 (as nginx does); that entry was written by whoever sent the request into your network,
 so do not use it for security decisions.
 
@@ -115,7 +133,7 @@ for header in ('for="2001:db8::1"', "for=192.0.2.43;for=192.0.2.44", "for=a; pro
     except ForwardedError as error:
         print(error)
 # '2001:db8::1' is not a node identifier at offset 4
-# parameter 'for' occurs twice in one element at offset 19
+# parameter 'for' occurs twice in one element at offset 15
 # expected a parameter name followed by '=' at offset 6
 ```
 
@@ -145,7 +163,7 @@ Entries that are not addresses become `for=unknown`, so hop counts stay right.
 | Name | What it does |
 | --- | --- |
 | `client_from_forwarded(header, remote, *, trusted=(), hops=None)` | The client from `Forwarded` lines and the peer address, or `None`. |
-| `client_from_x_forwarded(header, remote, *, proto=None, host=None, trusted=(), hops=None, proto_hops=1, host_hops=1)` | The same from `X-Forwarded-For`, with `X-Forwarded-Proto` and `-Host`. |
+| `client_from_x_forwarded(x_forwarded_for, remote, *, proto=None, host=None, trusted=(), hops=None, proto_hops=1, host_hops=1)` | The same from `X-Forwarded-For`, with `X-Forwarded-Proto` and `-Host`. |
 | `Client` | Frozen result: `node`, `proto`, `host`, `proxies` (trusted proxies passed). |
 | `parse(header, *, strict=False)` | `Forwarded` lines to a list of dicts. |
 | `build(elements)` | Mappings of `str` or `Node` values to a `Forwarded` value. |
@@ -155,10 +173,10 @@ Entries that are not addresses become `for=unknown`, so hop counts stay right.
 | `convert_x_forwarded_for(header)` | `X-Forwarded-For` to `Forwarded`. |
 | `ForwardedError` | `ValueError` raised by strict parsing, `parse_node` and `build`; `position` is the offset or `None`. |
 
-`header` arguments take one field value or an iterable of them, one per line received.
-`remote` is a `str` or an `ipaddress` address (a zone such as `%eth0` is dropped), or
-`None` when the connection has no IP address (a Unix socket), which only `hops` can get
-past. `trusted` takes an iterable of addresses and networks as strings or `ipaddress`
+`header` and `x_forwarded_for` take one field value or an iterable of them, one per line
+received. `remote` is a `str` or an `ipaddress` address (a zone such as `%eth0` is
+dropped), or `None` when the connection has no IP address (a Unix socket), which only
+`hops` can get past. `trusted` takes an iterable of addresses and networks as strings or `ipaddress`
 objects (a bare string raises `TypeError`); an IPv4 address and its IPv4-mapped IPv6
 form such as `::ffff:10.0.0.1` match the same networks.
 
@@ -183,12 +201,25 @@ their hashes, and their tests skip until then.
 RFC 7239 defines one `Forwarded` header for what the `X-Forwarded-*` family did ad hoc,
 but reading either one safely is easy to get wrong: splitting on commas inside quotes,
 unquoting bracketed IPv6, or trusting the leftmost address that any client can forge.
-This library is just the codec and the trust walk, both headers, no framework and no
-runtime dependencies.
+
+The Python tools that exist each cover part of it (checked against the versions named,
+see the [guide](https://github.com/JaviLianes8/forwarded/blob/main/GUIDE.md#differences-from-other-tools)):
+
+- Werkzeug's `ProxyFix` and uvicorn's `ProxyHeadersMiddleware` read `X-Forwarded-*` only,
+  and only as middleware for their own server interface. `ProxyFix` trusts by hop count
+  and accepts a value that is not an address as the client.
+- Hypercorn's `ProxyFixMiddleware` reads `Forwarded` without quoted-strings, so a quoted
+  IPv6 client keeps its quotes.
+- aiohttp parses `Forwarded` into mappings but leaves picking the client to you.
+
+This library is the codec and the trust walk for both headers, as plain functions you can
+call from any framework, a log processor or a proxy, with no runtime dependencies. If you
+already run one of the middlewares above and only need `X-Forwarded-For` by hop count, it
+may be all you need.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/JaviLianes8/forwarded/blob/main/LICENSE).
 
 ## Links
 

@@ -147,3 +147,29 @@ def test_bad_arguments_raise() -> None:
             client_from_x_forwarded(None, "10.0.0.1", **{name: 0})  # type: ignore[arg-type]
         with pytest.raises(TypeError):
             client_from_x_forwarded(None, "10.0.0.1", **{name: True})  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("name", ["proto", "host"])
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        (5, "{name} must be str or an iterable of str, not int"),
+        (b"x", "{name} must be str or an iterable of str, not bytes"),
+        (bytearray(b"x"), "{name} must be str or an iterable of str, not bytearray"),
+        ([b"x"], "{name} lines must be str, not bytes"),
+    ],
+)
+def test_a_proto_or_host_of_the_wrong_type_names_the_argument(
+    name: str, value: object, message: str
+) -> None:
+    with pytest.raises(TypeError, match=f"^{message.format(name=name)}$"):
+        client_from_x_forwarded("192.0.2.43", "10.0.0.1", **{name: value})  # type: ignore[arg-type]
+
+
+def test_an_x_forwarded_for_of_the_wrong_type_names_the_argument() -> None:
+    with pytest.raises(
+        TypeError, match=r"^x_forwarded_for must be str or an iterable of str, not int$"
+    ):
+        client_from_x_forwarded(5, "10.0.0.1")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=r"^x_forwarded_for lines must be str, not int$"):
+        client_from_x_forwarded([5], "10.0.0.1")  # type: ignore[list-item]
