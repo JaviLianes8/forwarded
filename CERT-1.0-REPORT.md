@@ -191,3 +191,10 @@ now fails on it.
 On this PC at the final head: `ruff format --check .` (ruff 0.17.0), `ruff check .`,
 `mypy --strict src` and `mypy --strict src tests` each exit 0. `pytest` exits 0 on the
 runs above and on the final-head run below.
+
+Final-head run at 649ef07 on the laptop (CPython 3.14.6), from a fresh clone of GitHub:
+`scripts/fetch_upstream.py` fetched all six sources again on 2026-10-19 and every hash
+matched the manifest; forwarded-parse 2.1.2 and proxy-addr 2.0.8 from npm, Werkzeug
+3.1.9, uvicorn 0.54.0, Hypercorn 0.18.0, aiohttp 3.14.5 and mypy installed;
+`FORWARDED_E2E=1`: 417 passed, 0 skipped (doctests, the signature contract, the wheel
+e2e and the upgrade from PyPI 0.2.0 included).
