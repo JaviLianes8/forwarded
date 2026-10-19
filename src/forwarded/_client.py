@@ -9,7 +9,7 @@ from ._errors import kind
 from ._node import Node
 from ._parse import scan_header
 from ._trust import Address, Trust, Trusted, remote_node, walk
-from ._xff import parse_x_forwarded
+from ._xff import split_values
 
 
 @dataclass(frozen=True)
@@ -143,9 +143,9 @@ def client_from_x_forwarded(
     proto_hops, host_hops = _count(proto_hops, "proto_hops"), _count(host_hops, "host_hops")
     trust = Trust(trusted, hops)
     peer = remote_node(remote)
-    entries = parse_x_forwarded(x_forwarded_for) if x_forwarded_for is not None else []
-    protos = parse_x_forwarded(proto) if proto is not None else []
-    hosts = parse_x_forwarded(host) if host is not None else []
+    entries = _values(x_forwarded_for, "x_forwarded_for")
+    protos = _values(proto, "proto")
+    hosts = _values(host, "host")
     found = walk(entries, peer, trust)
     if found is None:
         return None
@@ -161,6 +161,10 @@ def _count(value: int, name: str) -> int:
     if count < 1:
         raise ValueError(f"{name} must be at least 1")
     return count
+
+
+def _values(header: str | Iterable[str] | None, name: str) -> list[str]:
+    return split_values(header, name) if header is not None else []
 
 
 def _nth_from_right(values: list[str], n: int, proxies: int) -> str | None:

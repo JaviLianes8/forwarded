@@ -106,3 +106,24 @@ def test_client_fields_hold_plain_values_whatever_subclass_was_given() -> None:
     client = Client(UNKNOWN, Text("https"), Text("example.com"), proxies=Count.TWO)
     assert (type(client.proto), type(client.host), type(client.proxies)) == (str, str, int)
     assert client.proxies == 2
+
+
+@pytest.mark.parametrize(
+    ("name", "header"),
+    [("proto", "javascript, https"), ("host", "evil.example, good.example")],
+)
+def test_a_header_count_that_lies_is_used_as_its_plain_value(name: str, header: str) -> None:
+    # Liar(2) claims to fit the one trusted proxy passed; as a plain int it does not.
+    client = client_from_x_forwarded(
+        "203.0.113.9",
+        "10.0.0.2",
+        trusted=["10.0.0.0/8"],
+        **{name: header, f"{name}_hops": Liar(2)},  # type: ignore[arg-type]
+    )
+    assert client is not None and client.proxies == 1
+    assert client.proto is None and client.host is None
+
+
+def test_a_client_node_of_the_wrong_type_raises() -> None:
+    with pytest.raises(TypeError, match=r"^node must be a Node, not int$"):
+        Client(5)  # type: ignore[arg-type]

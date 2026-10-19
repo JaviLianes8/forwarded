@@ -125,6 +125,16 @@ def test_entries_of_the_wrong_type_are_named_by_type_only() -> None:
     assert _Secret.calls == 0
 
 
-def test_bytes_entries_ask_to_be_decoded() -> None:
-    with pytest.raises(TypeError, match=r"^cannot trust bytes: decode it to str first$"):
-        client_from_forwarded("for=192.0.2.43", "10.0.0.1", trusted=[b"10.0.0.0/8"])  # type: ignore[list-item]
+@pytest.mark.parametrize("entry", [b"10.0.0.0/8", bytearray(b"10.0.0.0/8")])
+def test_bytes_entries_ask_to_be_decoded(entry: bytes) -> None:
+    name = type(entry).__name__
+    with pytest.raises(TypeError, match=f"^cannot trust {name}: decode it to str first$"):
+        client_from_forwarded("for=192.0.2.43", "10.0.0.1", trusted=[entry])  # type: ignore[list-item]
+
+
+@pytest.mark.parametrize("network", ["10.0.0.0/8", "2001:db8::/32"])
+def test_trusted_and_hops_together_raise_for_either_family(network: str) -> None:
+    with pytest.raises(ValueError, match=r"^give trusted or hops, not both$"):
+        client_from_forwarded("for=192.0.2.43", "10.0.0.1", trusted=[network], hops=1)
+    with pytest.raises(ValueError, match=r"^give trusted or hops, not both$"):
+        client_from_x_forwarded("192.0.2.43", "10.0.0.1", trusted=[network], hops=1)

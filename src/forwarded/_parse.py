@@ -10,20 +10,24 @@ from ._scan import Element, Pair, scan_line
 from ._values import is_host, is_scheme
 
 
-def header_lines(header: str | Iterable[str]) -> list[str]:
-    """Return the field lines of ``header`` as plain strings: a single string is one line."""
+def header_lines(header: str | Iterable[str], name: str = "header") -> list[str]:
+    """Return the field lines of ``header`` as plain strings: a single string is one line.
+
+    ``name`` is the argument the caller received ``header`` as, for the error messages.
+    """
     if isinstance(header, str):
         return [str.__str__(header)]
+    wrong = f"{name} must be str or an iterable of str, not {kind(header)}"
     if isinstance(header, (bytes, bytearray, memoryview)):
-        raise TypeError("header must be str or an iterable of str, not bytes")
+        raise TypeError(wrong)
     try:
         items = iter(header)
     except TypeError:
-        raise TypeError(f"header must be str or an iterable of str, not {kind(header)}") from None
+        raise TypeError(wrong) from None
     lines = []
     for line in items:
         if not isinstance(line, str):
-            raise TypeError(f"header lines must be str, not {kind(line)}")
+            raise TypeError(f"{name} lines must be str, not {kind(line)}")
         lines.append(str.__str__(line))
     return lines
 

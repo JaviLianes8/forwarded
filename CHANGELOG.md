@@ -46,8 +46,10 @@ defaults and error types follow Semantic Versioning from this release on.
 
 - `TypeError` instead of `AttributeError` for `Node(name=5)`, `parse_node(None)`,
   `build({"for": "_a"})` and `build("for=_a")`; `build([None])` raises `TypeError`
-  instead of `ForwardedError`, and a header argument that is not iterable gets a
-  message that names the argument.
+  instead of `ForwardedError`, and a header argument of the wrong type gets a
+  message that names the argument: `x_forwarded_for`, `proto` or `host` for
+  `client_from_x_forwarded`, `header` elsewhere. A `bytearray` or `memoryview` header
+  is named by its own type rather than called `bytes`.
 - Error messages quote at most 80 characters of the input; 0.2.0 quoted the whole
   value (a 1 MB message for a 1 MB peer address). A `trusted` item of the wrong type
   raises `TypeError` naming only its type (a `bytes` item is told to decode first): its

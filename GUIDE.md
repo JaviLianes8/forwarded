@@ -112,7 +112,7 @@ anything else. That includes CR and LF, so a value cannot inject a header.
 | --- | --- |
 | `ForwardedError` (a `ValueError`) | strict parsing, `parse_node`, `build`: input outside RFC 7239. `position` is the offset in the line, or `None` for a whole value. |
 | `ValueError` | a `remote` that is not an IP address, a `trusted` entry that is not an address or network, `trusted` and `hops` together, a negative `hops` or `Client.proxies`, a `proto_hops` or `host_hops` under 1. |
-| `TypeError` | arguments of the wrong type: `bytes` headers, a bare string as `trusted`, a `trusted` entry that is neither a string nor an `ipaddress` object, a count that is not an `int`, a non-mapping element given to `build`. |
+| `TypeError` | arguments of the wrong type, named in the message: `bytes` headers, a bare string as `trusted`, a `trusted` entry that is neither a string nor an `ipaddress` object, a count that is not an `int`, a non-mapping element given to `build`. |
 
 Messages quote at most 80 characters of the input, so a hostile megabyte never ends up
 in a log line. An argument of the wrong type is named by its type only, never by its

@@ -22,9 +22,14 @@ def parse_x_forwarded(header: str | Iterable[str]) -> list[str]:
     >>> parse_x_forwarded(["203.0.113.195, 2001:db8::1", " , 198.51.100.178"])
     ['203.0.113.195', '2001:db8::1', '198.51.100.178']
     """
+    return split_values(header, "header")
+
+
+def split_values(header: str | Iterable[str], name: str) -> list[str]:
+    """Return ``parse_x_forwarded(header)``, naming the argument ``name`` in errors."""
     return [
         value
-        for line in header_lines(header)
+        for line in header_lines(header, name)
         for value in (part.strip(OWS) for part in line.split(","))
         if value
     ]
