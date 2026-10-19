@@ -19,7 +19,7 @@ Progress:
 - [x] QA rounds 2 and 3: every finding fixed (7c51179, 45c0a42)
 - [x] Five QA lenses report PASS (item 19)
 - [x] Independent reviewer reports PASS (item 16)
-- [ ] Final gates on a fresh clone of the pushed branch
+- [x] Final gates on a fresh clone of the pushed branch
 
 ## Scorecard
 
@@ -349,3 +349,22 @@ killed; R6 changes no behaviour (an equivalent mutant).
 | 17 | PR from `release/1.0.0`, trace guard CLEAN | PASS (merge and publish are the maintainer's step) |
 | 18 | Contracts bite (mutations) | PASS |
 | 19 | Five independent QA lenses | PASS |
+
+## Final gates (fresh clone)
+
+On Elena's PC (CPython 3.14.2), in a throwaway folder, from a fresh clone of
+`release/1.0.0` on GitHub at aecfaf5 (this report's previous commit; the commit that adds
+this section changes this report only):
+
+- `scripts/fetch_upstream.py` fetched the six sources and every hash matched the manifest;
+  forwarded-parse 2.1.2 and proxy-addr 2.0.8 installed from npm under Node.js 24.18.0;
+  Werkzeug 3.1.9, uvicorn 0.54.0, Hypercorn 0.18.0 and aiohttp 3.14.5 installed.
+- `ruff format --check .`, `ruff check .` and `mypy --strict src` each exit 0.
+- `pytest` with `FORWARDED_E2E=1` exits 0: 530 passed, 0 skipped. The first run of this
+  step pointed `--basetemp` at a folder whose parent did not exist, so the tests that use
+  `tmp_path` errored before running; the run above uses an existing parent.
+- `python -m build` gives `forwarded-1.0.0-py3-none-any.whl` and `forwarded-1.0.0.tar.gz`;
+  `twine check --strict` passes both.
+- The wheel installed in a new venv imports from that venv's `site-packages` (version
+  1.0.0). The test suite run against it, without `src` on the path, exits 0: 516 passed,
+  and 2 skipped (the e2e tests that build their own wheel, run in the step above).
