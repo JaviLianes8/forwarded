@@ -151,7 +151,7 @@ Entries that are not addresses become `for=unknown`, so hop counts stay right.
 | Name | What it does |
 | --- | --- |
 | `client_from_forwarded(header, remote, *, trusted=(), hops=None)` | The client from `Forwarded` lines and the peer address, or `None`. |
-| `client_from_x_forwarded(header, remote, *, proto=None, host=None, trusted=(), hops=None, proto_hops=1, host_hops=1)` | The same from `X-Forwarded-For`, with `X-Forwarded-Proto` and `-Host`. |
+| `client_from_x_forwarded(x_forwarded_for, remote, *, proto=None, host=None, trusted=(), hops=None, proto_hops=1, host_hops=1)` | The same from `X-Forwarded-For`, with `X-Forwarded-Proto` and `-Host`. |
 | `Client` | Frozen result: `node`, `proto`, `host`, `proxies` (trusted proxies passed). |
 | `parse(header, *, strict=False)` | `Forwarded` lines to a list of dicts. |
 | `build(elements)` | Mappings of `str` or `Node` values to a `Forwarded` value. |
@@ -161,10 +161,10 @@ Entries that are not addresses become `for=unknown`, so hop counts stay right.
 | `convert_x_forwarded_for(header)` | `X-Forwarded-For` to `Forwarded`. |
 | `ForwardedError` | `ValueError` raised by strict parsing, `parse_node` and `build`; `position` is the offset or `None`. |
 
-`header` arguments take one field value or an iterable of them, one per line received.
-`remote` is a `str` or an `ipaddress` address (a zone such as `%eth0` is dropped), or
-`None` when the connection has no IP address (a Unix socket), which only `hops` can get
-past. `trusted` takes an iterable of addresses and networks as strings or `ipaddress`
+`header` and `x_forwarded_for` take one field value or an iterable of them, one per line
+received. `remote` is a `str` or an `ipaddress` address (a zone such as `%eth0` is
+dropped), or `None` when the connection has no IP address (a Unix socket), which only
+`hops` can get past. `trusted` takes an iterable of addresses and networks as strings or `ipaddress`
 objects (a bare string raises `TypeError`); an IPv4 address and its IPv4-mapped IPv6
 form such as `::ffff:10.0.0.1` match the same networks.
 

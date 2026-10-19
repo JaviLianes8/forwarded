@@ -48,6 +48,8 @@ defaults and error types follow Semantic Versioning from this release on.
   or an integer past the digit limit, raises `TypeError` instead of that failure.
 - `client_from_x_forwarded` checks the types of `proto` and `host` even when it does
   not use them.
+- The README names the first parameter of `client_from_x_forwarded` `x_forwarded_for`,
+  as the code always has; 0.2.0's README called it `header`.
 - `scripts/release.ps1` refuses only a version PyPI already has, and only from a clean
   tree; 0.2.0's refused any upload once the name existed.
 
