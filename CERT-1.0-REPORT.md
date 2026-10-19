@@ -267,6 +267,33 @@ passed and 2 skipped (the opt-in wheel e2e), run with Werkzeug 3.1.9, uvicorn 0.
 Hypercorn 0.18.0 and aiohttp 3.14.5 installed. The system interpreter's uvicorn 0.29.0
 still fails the uvicorn oracle test for that reason only, as in round 1.
 
+### Round 3 (reviewed head 29bbb72, fixes in 45c0a42)
+
+Lens e confirmed N1 to N5 fixed (mutants S06, S11, S12, S13, S17 and S18 killed) and
+raised five new surviving mutants. None is a behaviour bug: the library already behaves as
+documented in every repro, so no code, docs or CHANGELOG change was needed. Each finding is
+a missing contract, now pinned in the new `tests/test_contract_types.py`.
+
+| Lens | Id | Finding | Change |
+| --- | --- | --- | --- |
+| e | E1 | mutant R25 (`_values` tests `if header` instead of `is not None`) survived: a falsy value of the wrong type passed for a missing header | `test_an_x_forwarded_argument_of_the_wrong_type_raises_naming_it` runs `0`, `b""`, `bytearray()` and `memoryview(b"")` (plus `5` and `memoryview(b"x")`) through `x_forwarded_for`, `proto` and `host` and pins the exact message |
+| e | E2 | mutant R02 (`memoryview` dropped from the bytes-like check) survived | the same values run through `parse`, `parse_x_forwarded`, `convert_x_forwarded_for` and `client_from_forwarded` (with and without `hops=0`) in `test_a_header_of_the_wrong_type_raises_naming_header`, and through `proto`/`host` above |
+| e | E3 | mutant R16 (`strip()` instead of `strip(OWS)`) survived | `test_only_spaces_and_tabs_are_removed_around_values` keeps `\x0b`, `\x0c`, `\r`, `\n`, `\xa0` and ` ` around values; `test_an_address_with_other_whitespace_is_not_a_client` checks such an entry gives no client |
+| e | E4 | mutant R08 (default name `headers`) survived | `parse` and `client_from_forwarded` pin `header must be str or an iterable of str, not <type>` and `header lines must be str, not int` |
+| e | E5 | mutant R14 (wrong name passed by `parse_x_forwarded`) survived | `parse_x_forwarded` and `convert_x_forwarded_for` pin the same two exact messages |
+
+Mutation check of the new contracts: R02, R08, R14, R16 and R25 were each applied alone to
+a copy of the tree and `tests/test_contract_types.py` run; all 5 were killed (R25 by the
+`memoryview(b"")` and `0` cases, R02 by the `memoryview` cases, R16 by the `\x0b` case, R08
+and R14 by the exact-message cases).
+
+Gates at 45c0a42: `ruff format --check .`, `ruff check .`, `mypy --strict src` and
+`mypy --strict src tests` exit 0 on this PC. `pytest` exits 0 on Elena's PC (Python 3.14,
+fresh venv with the dev extras, Werkzeug, uvicorn, Hypercorn and aiohttp): 483 passed and 47
+skipped. The skips are the environment-gated tests: the opt-in wheel e2e, the Node.js
+oracles and the tests that read the gitignored upstream copies, none of which were present
+in that throwaway folder.
+
 ### Disputed findings
 
 None.
