@@ -24,10 +24,11 @@ class Node:
     ``None``. Wrong types raise ``TypeError``, wrong values ``ValueError``. Fields hold
     plain ``str``, ``int`` and ``ipaddress`` values, whatever subclass was given.
 
-    ``str(node)`` gives the RFC 7239 form: an IPv6 address in brackets, written as
-    RFC 5952 says (an IPv4-mapped address as ``::ffff:192.0.2.1`` on every Python
-    version). It still needs quoting in a header when it holds ``:`` or ``[``, which
-    ``build`` does.
+    ``str(node)`` gives the RFC 7239 form: an IPv6 address in brackets, in the RFC 5952
+    text form (section 4), with an IPv4-mapped address in mixed notation as section 5
+    recommends (``::ffff:192.0.2.1`` on every Python version). Other addresses section 5
+    allows in mixed notation, such as RFC 2765's ``::ffff:0:a.b.c.d``, stay hexadecimal.
+    It still needs quoting in a header when it holds ``:`` or ``[``, which ``build`` does.
 
     >>> from ipaddress import ip_address
     >>> from forwarded import Node
@@ -98,7 +99,7 @@ class Node:
     def __str__(self) -> str:
         if isinstance(self.ip, IPv6Address):
             mapped = self.ip.ipv4_mapped
-            # RFC 5952 section 5; CPython 3.11.5 itself writes ::ffff:c000:201.
+            # RFC 5952 section 5 for IPv4-mapped only; CPython 3.11.5 writes ::ffff:c000:201.
             host = f"[::ffff:{mapped}]" if mapped is not None else f"[{self.ip}]"
         else:
             host = str(self.ip) if self.ip is not None else str(self.name)

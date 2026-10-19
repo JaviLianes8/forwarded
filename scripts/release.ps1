@@ -2,8 +2,16 @@
 # The version must not already be on PyPI; the token is read from a secret store, never git.
 $ErrorActionPreference = "Stop"
 
+# $ErrorActionPreference does NOT stop on a native command's non-zero exit, so every
+# native command runs through this check: a failed build or twine check must never upload.
+function Invoke-Native($label, [scriptblock]$cmd) {
+    & $cmd
+    if ($LASTEXITCODE -ne 0) { throw "$label failed (exit $LASTEXITCODE)" }
+}
+
 # Build only from a clean tree: hatchling ships every untracked, non-ignored file.
-if (git status --porcelain) { throw "The working tree is not clean. Commit or remove the changes first." }
+$dirty = Invoke-Native "git status" { git status --porcelain }
+if ($dirty) { throw "The working tree is not clean. Commit or remove the changes first." }
 
 # Refuse to upload a version PyPI already has. Works on Windows PowerShell 5.1 and pwsh 7.
 $version = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
@@ -24,9 +32,9 @@ if (-not $token) {
 }
 
 Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue
-python -m build
-python -m twine check dist/*
+Invoke-Native "build" { python -m build }
+Invoke-Native "twine check" { python -m twine check dist/* }
 
 $env:TWINE_USERNAME = "__token__"
 $env:TWINE_PASSWORD = $token
-try { python -m twine upload dist/* } finally { Remove-Item Env:\TWINE_PASSWORD -ErrorAction SilentlyContinue }
+try { Invoke-Native "twine upload" { python -m twine upload dist/* } } finally { Remove-Item Env:\TWINE_PASSWORD -ErrorAction SilentlyContinue }

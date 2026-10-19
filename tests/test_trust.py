@@ -109,3 +109,22 @@ def test_a_trusted_peer_with_a_zone_matches_its_network() -> None:
     assert client is not None and client.proxies == 1
     client = client_from_x_forwarded(SPOOF, "[fe80::1%eth0]:443", trusted=["fe80::/10"])
     assert client is not None and client.proxies == 1
+
+
+class _Secret:
+    calls = 0
+
+    def __repr__(self) -> str:
+        _Secret.calls += 1
+        return "Config(password='hunter2')"
+
+
+def test_entries_of_the_wrong_type_are_named_by_type_only() -> None:
+    with pytest.raises(TypeError, match=r"^cannot trust _Secret: give an address or a network$"):
+        client_from_forwarded("for=192.0.2.43", "10.0.0.1", trusted=[_Secret()])  # type: ignore[list-item]
+    assert _Secret.calls == 0
+
+
+def test_bytes_entries_ask_to_be_decoded() -> None:
+    with pytest.raises(TypeError, match=r"^cannot trust bytes: decode it to str first$"):
+        client_from_forwarded("for=192.0.2.43", "10.0.0.1", trusted=[b"10.0.0.0/8"])  # type: ignore[list-item]

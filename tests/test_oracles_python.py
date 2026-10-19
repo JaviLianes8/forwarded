@@ -159,7 +159,7 @@ def _valid_line(rng: random.Random) -> str:
 
 
 def test_valid_headers_parse_like_aiohttp() -> None:
-    # Domain: headers the RFC 7239 grammar accepts, without obs-text (aiohttp refuses it)
+    # Domain: headers the RFC 7239 grammar accepts, without obs-text (aiohttp stops at it)
     # and without empty elements (aiohttp returns an empty dict for each).
     test_utils = pytest.importorskip("aiohttp.test_utils")
     multidict = pytest.importorskip("multidict")

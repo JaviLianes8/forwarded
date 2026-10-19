@@ -16,8 +16,8 @@ class ForwardedError(ValueError):
     ... except ForwardedError as error:
     ...     print(error.position, isinstance(error, ValueError))
     ...     print(error)
-    19 True
-    parameter 'for' occurs twice in one element at offset 19
+    15 True
+    parameter 'for' occurs twice in one element at offset 15
     """
 
     def __init__(self, message: str, position: int | None = None) -> None:

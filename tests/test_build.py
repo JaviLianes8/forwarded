@@ -130,3 +130,9 @@ def test_build_rejects_elements_that_are_not_mappings_with_type_error(elements: 
     with pytest.raises(TypeError, match="mapping") as caught:
         build(elements)  # type: ignore[arg-type]
     assert not isinstance(caught.value, ValueError)
+
+
+@pytest.mark.parametrize("elements", [{}, {"for": "unknown"}])
+def test_build_rejects_a_single_mapping_even_when_empty(elements: dict[str, str]) -> None:
+    with pytest.raises(TypeError, match=r"^elements must be an iterable of mappings, not a dict$"):
+        build(elements)  # type: ignore[arg-type]

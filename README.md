@@ -32,6 +32,7 @@ client = client_from_x_forwarded(
     proto="https",  # X-Forwarded-Proto, set by the edge proxy
     trusted=["10.0.0.0/8"],  # your proxies: addresses or networks
 )
+assert client is not None  # None when the client cannot be told (see below)
 print(client.node)
 # 203.0.113.195
 print(client.proto, client.proxies)
@@ -39,27 +40,38 @@ print(client.proto, client.proxies)
 
 # A client that writes its own entries cannot get past your proxies.
 spoofed = client_from_x_forwarded("1.1.1.1, 203.0.113.195", "10.0.0.2", trusted=["10.0.0.0/8"])
+assert spoofed is not None
 print(spoofed.node)
 # 203.0.113.195
 
 # The same with Forwarded, where proto and host travel in the client's own element.
 header = 'for="[2001:db8::7]:4711";proto=https;host=shop.example, for=10.0.0.7'
 client = client_from_forwarded(header, "10.0.0.2", trusted=["10.0.0.0/8"])
+assert client is not None
 print(client.node, client.node.ip, client.node.port)
 # [2001:db8::7]:4711 2001:db8::7 4711
 print(client.proto, client.host)
 # https shop.example
 
 # When the proxies have no fixed addresses, trust a number of hops instead.
-print(client_from_x_forwarded("203.0.113.195, 198.51.100.4", "172.16.0.9", hops=1).node)
+by_hops = client_from_x_forwarded("203.0.113.195, 198.51.100.4", "172.16.0.9", hops=1)
+if by_hops is not None:
+    print(by_hops.node)
 # 198.51.100.4
+
+# A malformed entry where the walk stops gives None, never a guess.
+print(client_from_x_forwarded("203.0.113.195, junk", "10.0.0.2", trusted=["10.0.0.0/8"]))
+# None
 ```
 
 The walk goes from the right, starting with the peer address: while an entry is a trusted
 proxy it moves on, and the first entry that is not is the client. If the peer itself is
 not trusted, the headers are ignored and the peer is the client. The result is `None`
-when the client cannot be told: the entry at the boundary is malformed, or there are
-fewer entries than `hops`. When every address is trusted, the leftmost one is returned
+when the client cannot be told: the entry at the boundary is malformed (with
+`Forwarded`, that means its whole element: any syntax error in it, such as a repeated
+parameter or an unreadable pair, counts even when `parse` still reads a `for` from it),
+it is a `Forwarded` element with no `for`, `remote` is `None` and not covered by `hops`,
+or there are fewer entries than `hops`. When every address is trusted, the leftmost one is returned
 (as nginx does); that entry was written by whoever sent the request into your network,
 so do not use it for security decisions.
 
@@ -121,7 +133,7 @@ for header in ('for="2001:db8::1"', "for=192.0.2.43;for=192.0.2.44", "for=a; pro
     except ForwardedError as error:
         print(error)
 # '2001:db8::1' is not a node identifier at offset 4
-# parameter 'for' occurs twice in one element at offset 19
+# parameter 'for' occurs twice in one element at offset 15
 # expected a parameter name followed by '=' at offset 6
 ```
 

@@ -45,9 +45,11 @@ class Client:
                 object.__setattr__(self, field, str.__str__(value))
         if isinstance(self.proxies, bool) or not isinstance(self.proxies, int):
             raise TypeError(f"proxies must be an int, not {kind(self.proxies)}")
-        if self.proxies < 0:
+        # Check the plain value: a subclass could lie in its comparisons.
+        proxies = int.__int__(self.proxies)
+        if proxies < 0:
             raise ValueError("proxies cannot be negative")
-        object.__setattr__(self, "proxies", int.__int__(self.proxies))
+        object.__setattr__(self, "proxies", proxies)
 
 
 def client_from_forwarded(
@@ -66,10 +68,17 @@ def client_from_forwarded(
     proxies in front of this server, whatever their addresses). With neither, nothing is
     trusted and the client is ``remote``.
 
-    Returns ``None`` when the client cannot be told: the entry at the boundary is
+    Returns ``None`` when the client cannot be told: the element at the boundary is
     malformed or has no ``for``, ``remote`` is ``None`` and not covered by ``hops``, or
-    the chain is shorter than ``hops``. When every address is trusted the leftmost is
-    the client. ``proto`` and ``host`` come from the client's own element.
+    the chain is shorter than ``hops``. An element is malformed when it has any syntax
+    error, such as a repeated parameter or a pair that cannot be read, even where
+    ``parse`` still reads a ``for`` from it. When every address is trusted the leftmost
+    is the client. ``proto`` and ``host`` come from the client's own element.
+
+    Raises ``TypeError`` for arguments of the wrong type (such as a ``bytes`` header, a bare
+    string as ``trusted``, a ``hops`` that is not an ``int``) and ``ValueError`` for a
+    ``remote`` that is not an IP address, a ``trusted`` entry that is not an address or
+    a network, a negative ``hops``, or ``trusted`` and ``hops`` given together.
 
     >>> from forwarded import client_from_forwarded
     >>> header = 'for=10.0.0.9, for="[2001:db8::7]:4711";proto=https, for=10.0.0.7'
@@ -118,6 +127,10 @@ def client_from_x_forwarded(
     header has fewer values, or when the count is larger than the number of trusted
     proxies the walk passed, since such a value could come from the client.
 
+    Raises the errors of ``client_from_forwarded``, plus ``TypeError`` for a ``proto``,
+    ``host``, ``proto_hops`` or ``host_hops`` of the wrong type and ``ValueError`` for a
+    ``proto_hops`` or ``host_hops`` under 1.
+
     >>> from forwarded import client_from_x_forwarded
     >>> client = client_from_x_forwarded(
     ...     "1.1.1.1, 203.0.113.195, 10.0.0.7", "10.0.0.2", proto="https", trusted=["10.0.0.0/8"]
@@ -144,9 +157,10 @@ def client_from_x_forwarded(
 def _count(value: int, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"{name} must be an int, not {kind(value)}")
-    if value < 1:
+    count = int.__int__(value)
+    if count < 1:
         raise ValueError(f"{name} must be at least 1")
-    return value
+    return count
 
 
 def _nth_from_right(values: list[str], n: int, proxies: int) -> str | None:

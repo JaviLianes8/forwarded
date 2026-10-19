@@ -26,9 +26,11 @@ defaults and error types follow Semantic Versioning from this release on.
 
 ### Changed
 
-- IPv4-mapped IPv6 addresses are written `::ffff:192.0.2.1` (RFC 5952 section 5) by
-  `str(Node)`, `build` and `convert_x_forwarded_for` on every Python version; on
-  CPython 3.11.5, for example, 0.2.0 wrote `::ffff:c000:201`.
+- IPv4-mapped IPv6 addresses are written `::ffff:192.0.2.1` (the mixed notation RFC 5952
+  section 5 recommends for them) by `str(Node)`, `build` and `convert_x_forwarded_for` on
+  every Python version; on CPython 3.11.5, for example, 0.2.0 wrote `::ffff:c000:201`.
+  Other addresses section 5 allows in mixed notation, such as RFC 2765's IPv4-translated
+  `::ffff:0:a.b.c.d`, stay hexadecimal.
 - `Node`, `Client` and `ForwardedError` show and pickle as `forwarded.<Name>` instead
   of the private module that defines them; pickles made by 0.2.0 still load.
 - `Client` checks its fields: `TypeError` for a `node` that is not a `Node`, a `proto`
@@ -36,6 +38,9 @@ defaults and error types follow Semantic Versioning from this release on.
   `ValueError` for a negative `proxies`.
 - `Node` and `Client` store plain `str`, `int` and `ipaddress` values when given
   subclasses.
+- In strict mode, `ForwardedError.position` for a repeated parameter is the offset of
+  its second name, as for every other syntax error; 0.2.0 gave the offset of that
+  name's value (`for=192.0.2.43;for=192.0.2.44` now reports offset 15, not 19).
 
 ### Fixed
 
@@ -44,14 +49,23 @@ defaults and error types follow Semantic Versioning from this release on.
   instead of `ForwardedError`, and a header argument that is not iterable gets a
   message that names the argument.
 - Error messages quote at most 80 characters of the input; 0.2.0 quoted the whole
-  value (a 1 MB message for a 1 MB peer address). A `trusted` item whose `repr` fails,
-  or an integer past the digit limit, raises `TypeError` instead of that failure.
+  value (a 1 MB message for a 1 MB peer address). A `trusted` item of the wrong type
+  raises `TypeError` naming only its type (a `bytes` item is told to decode first): its
+  `repr`, which could hold a secret, fail, or take long to build, is never computed.
+- `Client.proxies`, `hops`, `proto_hops` and `host_hops` are checked as the plain `int`
+  they hold, so an `int` subclass whose comparisons lie cannot pass a negative or zero
+  count; a `proto_hops` of 0 used to read the leftmost X-Forwarded-Proto value, which
+  the client controls.
 - `client_from_x_forwarded` checks the types of `proto` and `host` even when it does
   not use them.
 - The README names the first parameter of `client_from_x_forwarded` `x_forwarded_for`,
   as the code always has; 0.2.0's README called it `header`.
 - `scripts/release.ps1` refuses only a version PyPI already has, and only from a clean
-  tree; 0.2.0's refused any upload once the name existed.
+  tree; 0.2.0's refused any upload once the name existed. It also stops when `git`, the
+  build or `twine check` fails, where it used to go on and upload.
+- The docs of `client_from_forwarded` and `client_from_x_forwarded` list the errors they
+  raise and say that a `Forwarded` element with any syntax error, a repeated parameter
+  included, counts as malformed at the boundary.
 
 ### Added
 

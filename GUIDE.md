@@ -35,8 +35,11 @@ a label, not an identity.
 
 The functions return `None` rather than guess:
 
-- the entry where the walk stops is malformed (not an address or a node identifier), or a
-  `Forwarded` element there has no `for`;
+- the entry where the walk stops is malformed: not an address or a node identifier, or,
+  with `Forwarded`, an element with any syntax error (a repeated parameter, a pair that
+  cannot be read, a broken quoted-string), even when lenient `parse` still reads a `for`
+  from it;
+- a `Forwarded` element there has no `for`;
 - there are fewer entries than `hops`;
 - `remote` is `None` (a Unix socket, for example) and `hops` does not cover it.
 
@@ -108,11 +111,15 @@ anything else. That includes CR and LF, so a value cannot inject a header.
 | Error | Raised for |
 | --- | --- |
 | `ForwardedError` (a `ValueError`) | strict parsing, `parse_node`, `build`: input outside RFC 7239. `position` is the offset in the line, or `None` for a whole value. |
-| `ValueError` | a `remote` that is not an IP address, a `trusted` entry that is not an address or network, `trusted` and `hops` together, negative counts. |
-| `TypeError` | arguments of the wrong type: `bytes` headers, a bare string as `trusted`, a non-mapping element given to `build`. |
+| `ValueError` | a `remote` that is not an IP address, a `trusted` entry that is not an address or network, `trusted` and `hops` together, a negative `hops` or `Client.proxies`, a `proto_hops` or `host_hops` under 1. |
+| `TypeError` | arguments of the wrong type: `bytes` headers, a bare string as `trusted`, a `trusted` entry that is neither a string nor an `ipaddress` object, a count that is not an `int`, a non-mapping element given to `build`. |
 
 Messages quote at most 80 characters of the input, so a hostile megabyte never ends up
-in a log line.
+in a log line. An argument of the wrong type is named by its type only, never by its
+`repr`, which could hold a secret.
+
+Counts are checked as the plain `int` they hold, so an `int` subclass cannot get a
+negative count past the check by overriding its comparisons.
 
 ## Differences from other tools
 
@@ -121,10 +128,16 @@ in `tests/test_oracles_node.py` and `tests/test_oracles_python.py`, and they hol
 the domains stated there. Outside those domains, as observed with the versions listed:
 
 - **proxy-addr 2.0.8** (Express): the same trust rules for networks and mapped
-  addresses. With a hop count larger than the chain, Express falls back to the leftmost
-  address; this library returns `None`.
-- **forwarded-parse 2.1.2**: throws on any header outside the grammar; this library reads
-  it leniently, or raises `ForwardedError` in strict mode.
+  addresses, with three differences. With a hop count larger than the chain, Express
+  falls back to the leftmost address; this library returns `None`. proxy-addr accepts a
+  trusted network such as `::ffff:10.0.0.0/8` and then trusts no IPv4 peer; this library
+  raises `ValueError` for it. proxy-addr throws on `::/0` (`invalid range on address`);
+  this library accepts it as every IPv6 address.
+- **forwarded-parse 2.1.2**: its grammar is not quite RFC 7239. It accepts whitespace
+  around `;` (`for=1.2.3.4; proto=http`) and a repeated parameter, keeping the last, both
+  of which strict mode here rejects. It throws on an empty pair or element
+  (`for=1.2.3.4;;proto=http`, `for=1.2.3.4,`), which the grammar allows and strict mode
+  here accepts. In lenient mode this library reads all four.
 - **Werkzeug 3.1.9 `ProxyFix`**: takes the X-Forwarded-For value at the hop count even
   when it is not an address (`junk` becomes `REMOTE_ADDR`), and takes an
   X-Forwarded-Proto value at its own count even when that count goes past the trusted
@@ -136,9 +149,11 @@ the domains stated there. Outside those domains, as observed with the versions l
 - **Hypercorn 0.18.0 `ProxyFixMiddleware`** (modern mode): splits `Forwarded` on commas
   and semicolons without reading quoted-strings, so `for="[2001:db8::1]:4711"` becomes a
   client address with the quotes in it, and trusts by hop count only.
-- **aiohttp 3.14.5 `request.forwarded`**: parses `Forwarded` but does not pick the client;
-  it returns an empty mapping for each empty element and for elements holding obs-text,
-  which this library drops or reads.
+- **aiohttp 3.14.5 `request.forwarded`**: parses `Forwarded` but does not pick the client.
+  It returns an empty mapping for each empty element, which this library drops, and it
+  stops reading an element at a pair holding obs-text, keeping only the pairs before it
+  (so the mapping is empty when that pair comes first); this library reads the whole
+  element.
 
 ## Upgrading from 0.2.0
 

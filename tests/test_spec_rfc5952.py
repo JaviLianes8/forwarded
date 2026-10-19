@@ -2,7 +2,9 @@
 
 The example addresses are cut from RFC 5952 as fetched (tests/upstream/MANIFEST.json).
 The random check compares with a text form written here by hand from sections 4 and 5:
-mixed notation for IPv4-mapped addresses (section 5), hexadecimal for everything else.
+mixed notation for IPv4-mapped addresses (section 5), hexadecimal for everything else,
+including the other prefixes section 5 allows in mixed notation (RFC 2765's
+IPv4-translated ``::ffff:0:0:0/96``), which this library leaves hexadecimal.
 """
 
 from __future__ import annotations
@@ -90,3 +92,8 @@ def test_random_addresses_are_written_as_rfc_5952_says() -> None:
             groups[:6] = [0, 0, 0, 0, 0, 0xFFFF]
         packed = b"".join(group.to_bytes(2, "big") for group in groups)
         assert str(Node(ip=IPv6Address(packed))) == f"[{_rfc5952(packed)}]", packed.hex()
+
+
+def test_ipv4_translated_addresses_stay_hexadecimal() -> None:
+    # A choice, documented on Node: only IPv4-mapped addresses use mixed notation.
+    assert str(parse_node("[::ffff:0:192.0.2.1]")) == "[::ffff:0:c000:201]"

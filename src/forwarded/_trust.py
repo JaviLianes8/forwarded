@@ -35,6 +35,7 @@ class Trust:
         if hops is not None:
             if isinstance(hops, bool) or not isinstance(hops, int):
                 raise TypeError(f"hops must be an int or None, not {kind(hops)}")
+            hops = int.__int__(hops)
             if hops < 0:
                 raise ValueError("hops cannot be negative")
             if self.v4 or self.v6:
@@ -109,8 +110,11 @@ def _network(item: object) -> IPv4Network | IPv6Network:
         network = ip_network(item)
     elif isinstance(item, str):
         network = _parse_network(str.__str__(item))
+    elif isinstance(item, (bytes, bytearray)):
+        raise TypeError(f"cannot trust {kind(item)}: decode it to str first")
     else:
-        raise TypeError(f"cannot trust {show(item)}: give an address or a network")
+        # The type only: the repr of an arbitrary object may hold a secret or be huge.
+        raise TypeError(f"cannot trust {kind(item)}: give an address or a network")
     if isinstance(network, IPv6Network) and network.subnet_of(_MAPPED):
         # A genuine IPv4-mapped network names IPv4 addresses: keep it as that IPv4 network.
         return IPv4Network((int(network.network_address) & 0xFFFFFFFF, network.prefixlen - 96))
