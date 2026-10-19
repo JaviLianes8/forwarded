@@ -16,8 +16,10 @@ Progress:
 - [x] Gates (item 15)
 - [x] PR #3 and trace guard CLEAN
 - [x] QA round 1: every finding fixed (4b2eb60)
-- [ ] Five QA lenses report PASS (item 19)
-- [ ] Independent reviewer reports PASS (item 16)
+- [x] QA rounds 2 and 3: every finding fixed (7c51179, 45c0a42)
+- [x] Five QA lenses report PASS (item 19)
+- [x] Independent reviewer reports PASS (item 16)
+- [ ] Final gates on a fresh clone of the pushed branch
 
 ## Scorecard
 
@@ -38,10 +40,10 @@ Progress:
 | 13 | pyproject 1.0.0, Production/Stable | PASS |
 | 14 | sdist and wheel contents | PASS |
 | 15 | Gates each exit 0 | PASS: see Gates |
-| 16 | Independent reviewer | pending |
-| 17 | PR and trace guard | PR #3 from `release/1.0.0`, trace guard CLEAN; merge and publish left to the maintainer |
+| 16 | Independent reviewer | PASS: round 1 at dea890f, every item of this list PASS (see Independent review) |
+| 17 | PR and trace guard | PASS: PR #3 from `release/1.0.0` to `main`, trace guard CLEAN; merge and publish are the maintainer's step |
 | 18 | Contracts bite (mutations) | PASS: author round of 19 mutants, all killed (two after a new contract) |
-| 19 | Five independent QA lenses | pending |
+| 19 | Five independent QA lenses | PASS: all five lenses PASS (see QA verdicts) |
 
 ## Baseline on 0.2.0 (before any change)
 
@@ -297,3 +299,53 @@ in that throwaway folder.
 ### Disputed findings
 
 None.
+
+### QA verdicts
+
+Each lens re-checked its own earlier findings and swept the code changed since its last
+round, until it reported PASS with no open finding.
+
+| Lens | Rounds | Final verdict | Report | Commit |
+| --- | --- | --- | --- | --- |
+| a. API and docs | 3 | PASS | `lens-a-r3/REPORT.md` | 29bbb72 |
+| b. Correctness and ground truth | 2 | PASS | `lens-b-r2/REPORT.md` | 419f92f |
+| c. Adversarial and robustness | 2 | PASS | returned to the maintainer; probe scripts `lens-c-r2/probes.py`, `lens-c-r2/sweep.py` | 419f92f |
+| d. Packaging and real e2e | 2 | PASS | `lens-d-r2/run-all.log` | 419f92f |
+| e. Contract strength | 4 | PASS | `lens-e-r4/REPORT.md` | dea890f |
+
+The paths are relative to the local certification folder; the reports are not committed.
+Lenses b, c and d had no finding at 419f92f; the later commits change error-message
+argument names, tests and this report, which lenses a and e re-checked. Lens d at 419f92f:
+the sdist test run and the repo e2e exit 0, and the wheel and the suite pass on CPython
+3.10.19, 3.11.5, 3.11.14, 3.12.12, 3.13.2, 3.13.11, 3.14.2 and 3.14.2 free-threaded;
+CPython 3.9 refuses the wheel as `requires-python` says. Lens e at dea890f: its five round 3
+mutants and ten new ones were all killed.
+
+## Independent review (item 16)
+
+Round 1, at dea890f, against the 19 items of the certification list, each verified by
+running it. The full suite passed with 530 tests and 0 skipped on CPython 3.10.19, 3.11.5,
+3.12.12, 3.13.2, 3.14.2 and 3.14.2 free-threaded. The reviewer's own mutations R1 to R5 were
+killed; R6 changes no behaviour (an equivalent mutant).
+
+| # | Item | Verdict |
+| --- | --- | --- |
+| 1 | Public API reviewed for stability | PASS |
+| 2 | `__all__` exact, no private imports in docs | PASS |
+| 3 | Docstrings with runnable examples, doctests | PASS |
+| 4 | Typed end to end | PASS |
+| 5 | Typed, documented, bounded errors | PASS |
+| 6 | Contract tests of every public name | PASS |
+| 7 | Real ground truth | PASS |
+| 8 | Real e2e from the wheel, upgrade from PyPI 0.2.0 | PASS |
+| 9 | Seeded fuzz, no crash, hang or blowup | PASS |
+| 10 | Supported Pythons | PASS |
+| 11 | README and `twine check` | PASS |
+| 12 | Dated CHANGELOG section | PASS |
+| 13 | pyproject 1.0.0, Production/Stable | PASS |
+| 14 | sdist and wheel contents | PASS |
+| 15 | Gates each exit 0 | PASS |
+| 16 | Independent reviewer | PASS |
+| 17 | PR from `release/1.0.0`, trace guard CLEAN | PASS (merge and publish are the maintainer's step) |
+| 18 | Contracts bite (mutations) | PASS |
+| 19 | Five independent QA lenses | PASS |
