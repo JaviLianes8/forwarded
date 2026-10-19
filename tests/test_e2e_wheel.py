@@ -66,10 +66,20 @@ def _run(*cmd: str | Path, cwd: Path | None = None) -> subprocess.CompletedProce
     return subprocess.run([str(c) for c in cmd], cwd=cwd, capture_output=True, check=False)
 
 
-def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
+def _build(tmp_path: Path) -> Path:
     dist = tmp_path / "dist"
     built = _run(sys.executable, "-m", "build", "--outdir", dist, ROOT)
     assert built.returncode == 0, built.stderr
+    return dist
+
+
+def _venv(path: Path) -> Path:
+    venv.create(path, with_pip=True)
+    return path / ("Scripts" if sys.platform == "win32" else "bin") / "python"
+
+
+def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
+    dist = _build(tmp_path)
     (wheel,) = dist.glob("forwarded-*.whl")
     (sdist,) = dist.glob("forwarded-*.tar.gz")
     names = zipfile.ZipFile(wheel).namelist()
@@ -83,10 +93,7 @@ def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
     assert "tests/test_sources.py" in listing
     assert "scripts/fetch_upstream.py" in listing
 
-    env_dir = tmp_path / "venv"
-    venv.create(env_dir, with_pip=True)
-    bindir = env_dir / ("Scripts" if sys.platform == "win32" else "bin")
-    python = bindir / "python"
+    python = _venv(tmp_path / "venv")
     installed = _run(python, "-m", "pip", "install", "-q", wheel)
     assert installed.returncode == 0, installed.stderr
 
@@ -96,3 +103,35 @@ def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
     result = _run(python, "-I", "-c", PROGRAM, cwd=work)
     assert result.returncode == 0, result.stderr
     assert result.stdout.decode().strip() == "e2e ok"
+
+
+UPGRADE = r"""
+import pickle, sys
+import forwarded
+from forwarded import client_from_x_forwarded, parse_node
+saved = sys.argv[1]
+client = client_from_x_forwarded("6.6.6.6", "203.0.113.9", trusted=["::/1"])
+if forwarded.__version__ == "0.2.0":
+    open(saved, "wb").write(pickle.dumps(parse_node("[2001:db8::1]:80")))
+    print("0.2.0", client.node)
+else:
+    assert pickle.loads(open(saved, "rb").read()) == parse_node("[2001:db8::1]:80")
+    print(forwarded.__version__, client.node)
+"""
+
+
+def test_upgrade_from_the_pypi_release(tmp_path: Path) -> None:
+    (wheel,) = _build(tmp_path).glob("forwarded-*.whl")
+    python = _venv(tmp_path / "venv")
+    saved = tmp_path / "node.pickle"
+    work = tmp_path / "work"
+    work.mkdir()
+    old = _run(python, "-m", "pip", "install", "-q", "--no-cache-dir", "forwarded==0.2.0")
+    assert old.returncode == 0, old.stderr
+    before = _run(python, "-I", "-c", UPGRADE, saved, cwd=work)
+    # 0.2.0 let an IPv6 network trust every IPv4 client (CVE-2026-90711 in proxy-addr).
+    assert before.stdout.decode().split() == ["0.2.0", "6.6.6.6"], before.stderr
+    new = _run(python, "-m", "pip", "install", "-q", "--upgrade", wheel)
+    assert new.returncode == 0, new.stderr
+    after = _run(python, "-I", "-c", UPGRADE, saved, cwd=work)
+    assert after.stdout.decode().split() == ["1.0.0", "203.0.113.9"], after.stderr
