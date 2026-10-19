@@ -15,6 +15,7 @@ Progress:
 - [x] Packaging, e2e and upgrade from PyPI 0.2.0, every Python (items 8, 10, 13, 14)
 - [x] Gates (item 15)
 - [x] PR #3 and trace guard CLEAN
+- [x] QA round 1: every finding fixed (4b2eb60)
 - [ ] Five QA lenses report PASS (item 19)
 - [ ] Independent reviewer reports PASS (item 16)
 
@@ -198,3 +199,49 @@ matched the manifest; forwarded-parse 2.1.2 and proxy-addr 2.0.8 from npm, Werkz
 3.1.9, uvicorn 0.54.0, Hypercorn 0.18.0, aiohttp 3.14.5 and mypy installed;
 `FORWARDED_E2E=1`: 417 passed, 0 skipped (doctests, the signature contract, the wheel
 e2e and the upgrade from PyPI 0.2.0 included).
+
+## QA lenses (item 19)
+
+### Round 1 (reviewed head dd22917, fixes in 4b2eb60)
+
+Five independent lenses ran against dd22917. Lens d (packaging and real e2e) reported no
+defect in the library itself: the wheel built from the sdist is byte-identical to the one
+built from the tree, the upgrade from PyPI 0.2.0 works, and the suite passed on every
+interpreter it could run. Every finding below is fixed in 4b2eb60. Each behaviour fix
+got a contract test first, and that test failed on dd22917.
+
+| Lens | Id | Finding | Change |
+| --- | --- | --- | --- |
+| a | A1 | "malformed" at the boundary did not cover a repeated parameter or other syntax errors in a `Forwarded` element | docstring of `client_from_forwarded`, README and GUIDE now say that any syntax error in the element counts; behaviour kept |
+| a | A2 | GUIDE bullet on forwarded-parse 2.1.2 was wrong | rewritten from a live run under Node.js 24.18.0: it accepts `; ` and duplicates, and throws on `;;` and a trailing `,` |
+| a | A3 | GUIDE missed two proxy-addr 2.0.8 differences | added: `::ffff:10.0.0.0/8` is accepted there and trusts no IPv4 peer, and `::/0` throws there (both rerun live) |
+| a, b | A4, F2 | GUIDE said aiohttp 3.14.5 returns an empty mapping for elements holding obs-text | reworded after a live aiohttp 3.14.5 run: it stops at the obs-text pair and keeps the pairs before it |
+| a | A5 | errors of the client functions undocumented, minimum of 1 for the header counts missing | both docstrings list their errors; the GUIDE error table names the minimum of 1 |
+| a | A6 | strict offset of a repeated parameter pointed at the value | now points at the repeated name (`for=192.0.2.43;for=192.0.2.44` gives 15); ForwardedError docstring, README and CHANGELOG updated; `test_strict.py` pins 3 cases |
+| a | A7 | README quick start failed `mypy --strict` (`Client \| None`) | the examples handle `None` and show a `None` result; `test_typing.py::test_the_readme_examples_pass_strict_type_checking` runs mypy on every README block |
+| b | F1 | Node docstring, CHANGELOG and a test docstring overstated RFC 5952 section 5 | narrowed: mixed notation for IPv4-mapped addresses only, RFC 2765 IPv4-translated addresses stay hexadecimal (pinned by `test_ipv4_translated_addresses_stay_hexadecimal`) |
+| c | F1 | range checks ran on the caller's `int` subclass, so a lying `__lt__` passed `proxies=-1` or `proto_hops=0` | `Client`, `hops`, `proto_hops` and `host_hops` convert to a plain `int` first, then check (`test_contract_values.py`) |
+| c | F2 | a wrong-type `trusted` entry put its `repr` in the message (secret leak, slow on huge objects) | the message names the type only, and the `repr` is never built; `bytes` entries are told to decode first (`test_trust.py`) |
+| d | F1 | `scripts/release.ps1` ignored `$LASTEXITCODE`, so it uploaded after a failed build or `twine check` | every native command runs through `Invoke-Native`, which throws on a non-zero exit; `test_docs.py` pins it. The lens d sandbox was rerun with the fixed script: a failing build stops at `build failed (exit 1)` and a failing `twine check` stops at `twine check failed (exit 1)`. Neither run reaches `twine upload` |
+| e | F1 | mutant M15 (`obfuscated` true for `unknown`) survived | `test_unknown_and_addresses_are_not_obfuscated` |
+| e | F2 | mutant M55 (negative `proxies` accepted) survived | `test_a_negative_proxy_count_raises` |
+| e | F3 | mutant M38 (`build({})` returned `''`) survived | `test_build_rejects_a_single_mapping_even_when_empty` pins the message |
+| e | F4 | subclass-to-plain conversions untested (M62, M63, M75, M78 to M81) | exact-type tests for every field, and `test_hostile_input.py` drives every public entry point with a hostile `str` subclass |
+| e | F5 | no bound on messages for a huge type name or parameter name (M67, M73) | `test_a_huge_type_name_stays_out_of_messages`, `test_a_huge_parameter_name_stays_out_of_messages` |
+| e | F6 | `Client` proto/host TypeError message not pinned (M64) | `test_client_text_fields_of_the_wrong_type_name_the_field` |
+
+Mutation check of the new contracts: the lens e mutants (M15, M38, M55, M62 to M64, M67,
+M73, M75, M80, M81) and the reverts of the lens a and c fixes were each applied alone to
+a copy of 4b2eb60. The new tests killed all 15.
+
+Gates at 4b2eb60, run on this PC: `ruff format --check .`, `ruff check .`,
+`mypy --strict src` and `mypy --strict src tests` each exit 0. `pytest` exits 0 with
+448 passed and 2 skipped (the opt-in wheel e2e). That run used the fetched sources,
+forwarded-parse 2.1.2 and proxy-addr 2.0.8 under Node.js 24.18.0, and Werkzeug 3.1.9,
+uvicorn 0.54.0, Hypercorn 0.18.0 and aiohttp 3.14.5. The system interpreter here has
+uvicorn 0.29.0 rather than the pinned 0.54.0, and its uvicorn oracle test fails for that
+reason only.
+
+### Disputed findings
+
+None.
